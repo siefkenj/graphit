@@ -1,0 +1,77 @@
+#graphSettings {
+	float: left;
+	width: 50%;
+	height: 100%;
+}
+#preview {
+	float: right;
+	width: 50%;
+	overflow: scroll;
+	height: 90%;
+}
+#canvas {
+	width: 1100px;
+	height: 850px;
+}
+
+#container {
+	height: 90%;
+	/* overflow: hidden; */
+}
+
+#table-importSettings {
+	border-width: 1px;
+	cellpadding: 0px;
+	cellspacing: 0px;
+	border-spacing: 0;
+}
+#table-importSettings td.rowData {
+	border-bottom: 1px solid #ddd;
+	padding: 2px;
+	margin: 0px;
+}
+#table-importSettings tr:first-child td.rowData {
+	border-top: 1px solid #ddd;
+}
+
+.inactiveRow {
+	color: #BBBBBB;
+}
+
+.emph {
+	font-style: italic;
+}
+
+.tablink {
+	font-weight: bold;
+	color: blue;
+}
+
+.float-left {
+	float: left;
+	width: 40%;
+	clear: none;
+}
+.float-right {
+	float: right;
+	width: 50%;
+	clear: none;
+}
+
+.clearfix:after {
+     visibility: hidden;
+     display: block;
+     font-size: 0;
+     content: " ";
+     clear: both;
+     height: 0;
+     }
+.clearfix { display: inline-block; }
+/* start commented backslash hack \*/
+* html .clearfix { height: 1%; }
+.clearfix { display: block; }
+/* close commented backslash hack */
+
+textarea {
+	font-family: monospace !important;
+}

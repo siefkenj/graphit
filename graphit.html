@@ -1,0 +1,80 @@
+<html>
+<head>
+	<title>Graphit</title>
+	<!-- jQuery includes -->
+	<script type="text/javascript" src="jquery/js/jquery-1.7.2.js"></script>
+	<script type="text/javascript" src="jquery/js/jquery-ui-1.8.18.custom.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="jquery/css/redmond/jquery-ui-1.8.18.custom.css" />
+	<script type="text/javascript" src="jquery/js/jquery.dataTables.js"></script>
+	<link rel="stylesheet" type="text/css" href="jquery/css/jquery.dataTables.css" />
+	<script type="text/javascript" src="jquery/js/jquery-spin.js"></script>
+
+	<!-- scantronulate includes -->
+	<link rel="stylesheet" type="text/css" href="css/dndimg.css" />
+	<link rel="stylesheet" type="text/css" href="css/interface.css" />
+	<script type="text/javascript" src="js/interface.js"></script>
+	<script type="text/javascript" src="js/config.js"></script>
+	<script type="text/javascript" src="js/syncronizedWidget.js"></script>
+	<script type="text/javascript" src="js/asciisvg.js"></script>
+</head>
+<body>
+<div id="tabs">
+	<ul>
+		<li><a href="#tab-importData">Import Data</a></li>
+		<li><a href="#tab-graph">Graph</a></li>
+	</ul>
+	<div id="tab-importData">
+		<div class='clearfix'>
+		<div class='float-left'>
+				<input type="file" id="files" name="files[]" accept="text/csv" />
+				<div id="dropbox"><span id="droplabel">Drop CSV File</span></div>
+		</div>
+		</div>
+	</div>
+	<div id="tab-graph">
+		<div class='clearfix'>
+		<div id="container">
+			<div id="graphSettings">
+				<span id="doGraph" class="button">doGraph</span>
+				<span id="downloadGraph" class="button">downloadGraph</span>
+				<textarea id="picture1input" rows="20" cols="58">
+setBorder(0)
+
+initPicture(-4.3,4.3,-3.3,3.3)
+fontsize=25
+axes(1, 1, "labels", 1)
+
+fontstyle="italic"
+fontfamily="times"
+
+fontsize=16
+strokewidth = "2"
+stroke = "blue"
+plot("x^2/4")
+
+stroke = "red"
+//plot(["5*t*cos(pi*t)", "5*t*sin(pi*t)"],0,1)
+
+//stroke = "green"
+
+//marker = "arrowdot"
+//line([0,1], [pi/2,1])
+//dot([pi,0], "open", cpi)
+
+//text([-2.5,-2.5], "ASCIIsvg Examplee")
+				</textarea> <br />
+				Line through points: <input id="twopoints" type="text" value="(0,0); (4,4)" /> <span id="gentwopoints" class="button">make</span> <br />
+				Point-slope: <input id="pointslope" type="text" value="m=3; (4,4)" /> <span id="genpointslope" class="button">make</span> <br />
+			</div>
+			<div id="preview">
+				<div id="outputNode">
+					<embed width="550" height="450" src="d.svg">
+				</div>
+				<textarea id="genout"></textarea>
+			</div>
+		</div>
+		</div>
+	</div>
+</div>
+</body>
+</html>
