@@ -17,6 +17,9 @@ $(document).ready(function() {
     $('#gentwopoints').click(genTwoPoints);
     $('#genpointslope').click(genPointSlope);
 
+    //CodeMirror.fromTextArea($('#picture1input')[0], {'indentWithTabs': true, 'mode': 'text/javascript'});
+    CodeMirror.fromTextArea($('#picture1input')[0]);
+
 });
 
 function doGraph() {
