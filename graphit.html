@@ -37,6 +37,7 @@
 			<div id="graphSettings">
 				<span id="doGraph" class="button">doGraph</span>
 				<span id="downloadGraph" class="button">downloadGraph</span>
+				<span id="saveGraph" class="button">locally save graph</span>
 				<textarea id="picture1input" rows="20" cols="58">
 setBorder(0)
 
@@ -63,14 +64,34 @@ stroke = "red"
 
 //text([-2.5,-2.5], "ASCIIsvg Examplee")
 				</textarea> <br />
+				<!--
 				Line through points: <input id="twopoints" type="text" value="(0,0); (4,4)" /> <span id="gentwopoints" class="button">make</span> <br />
 				Point-slope: <input id="pointslope" type="text" value="m=3; (4,4)" /> <span id="genpointslope" class="button">make</span> <br />
+				<textarea id="genout"></textarea>
+				-->
+				<div id="thumbnails">
+					<!--<div class="ui-widget ui-widget-contents ui-corner-all ui-state-default thumbnail">-->
+					<div class="button thumbnail">
+						<div class="thumbnail-svg"></div>
+						<div class="thumbnail-caption"></div>
+					</div>
+				</div>
 			</div>
 			<div id="preview">
-				<div id="outputNode">
-					<embed width="550" height="450" src="d.svg">
+				<div class='svg-stats'>
+				<span class='item'>
+					Width: <span id='svg-stat-width' class='svg-stat editable'>550</span>px
+				</span>
+				<span class='item'>
+					Height: <span id='svg-stat-height' class='svg-stat editable'>450</span>px
+				</span>
+				<span class='item'>
+					Aspect-Ratio: <span id='svg-stat-aspect' class='svg-stat'>1</span>
+				</span>
 				</div>
-				<textarea id="genout"></textarea>
+				<div id="outputNode">
+					<svg id="target" xml:space="preserve" width="550" height="450" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+				</div>
 			</div>
 		</div>
 		</div>

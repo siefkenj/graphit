@@ -20,6 +20,12 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License (at http://www.gnu.org/copyleft/gpl.html) 
 for more details.*/
+
+/* encapulate everything in a function's scope.  The only command
+ * we really nead is updatePicture, so just give ourselves that */
+
+AsciiSVG = (function(){
+
 var checkIfSVGavailable = true;
 var notifyIfNoSVG = true;
 var alertIfNoSVG = false;
@@ -333,9 +339,13 @@ use Firefox 1.5 preview (called Deerpark)");
     }
 }
 
-function switchTo(id) {
+// cannot call the param picture, 'cause that's a global variable!
+function switchTo(picture_xxx) {
     //alert(id);
-    picture = document.getElementById(id);
+
+    // We now pass the picture element directly in
+//    picture = document.getElementById(id);
+    picture = picture_xxx;
     width = picture.getAttribute("width") - 0;
     height = picture.getAttribute("height") - 0;
     strokewidth = "1" // pixel
@@ -359,9 +369,11 @@ function switchTo(id) {
     origin = [svgpicture.getAttribute("ox") - 0, svgpicture.getAttribute("oy") - 0];
 }
 
-function updatePicture(obj) {
+function updatePicture(src, target) {
     //alert(typeof obj)
-    var src = document.getElementById((typeof obj == "string" ? obj : "picture" + (obj + 1) + "input")).value;
+
+    // We now pass the source directly into updatePicture
+//    var src = document.getElementById((typeof obj == "string" ? obj : "picture" + (obj + 1) + "input")).value;
     xmin = null;
     xmax = null;
     ymin = null;
@@ -371,12 +383,12 @@ function updatePicture(obj) {
     yscl = null;
     ygrid = null;
     initialized = false;
-    switchTo((typeof obj == "string" ? obj.slice(0, 8) : "picture" + (obj + 1)));
+    switchTo(target);
     src = src.replace(/plot\(\x20*([^\"f\[][^\n\r]+?)\,/g, "plot\(\"$1\",");
     src = src.replace(/plot\(\x20*([^\"f\[][^\n\r]+)\)/g, "plot(\"$1\")");
     src = src.replace(/([0-9])([a-zA-Z])/g, "$1*$2");
     src = src.replace(/\)([\(0-9a-zA-Z])/g, "\)*$1");
-    //alert(src);
+    // alert(src);
     try {
         with(Math) eval(src);
     } catch (err) {
@@ -1139,39 +1151,8 @@ ASupdateCoords = [function () {
     updateCoords(9)
 }];
 
-// GO1.1 Generic onload by Brothercake 
-// http://www.brothercake.com/
-//onload function
-function generic() {
-    drawPictures();
-};
-//setup onload function
-if (typeof window.addEventListener != 'undefined') {
-    //.. gecko, safari, konqueror and standard
-    window.addEventListener('load', generic, false);
-} else if (typeof document.addEventListener != 'undefined') {
-    //.. opera 7
-    document.addEventListener('load', generic, false);
-} else if (typeof window.attachEvent != 'undefined') {
-    //.. win/ie
-    window.attachEvent('onload', generic);
-}
-//** remove this condition to degrade older browsers
-else {
-    //.. mac/ie5 and anything else that gets this far
-    //if there's an existing onload function
-    if (typeof window.onload == 'function') {
-        //store it
-        var existing = onload;
-        //add new onload handler
-        window.onload = function () {
-            //call existing onload function
-            existing();
-            //call generic onload function
-            generic();
-        };
-    } else {
-        //setup onload function
-        window.onload = generic;
-    }
-}
+
+// return an object containing updatePicture, since that is all that is needed
+return {updatePicture: updatePicture, 'about': 'AsciiSVG.updatePicture(<source code>, <svg element to render to>);\nNode, all contents of the svg will be erased and re-rendered with this command'};
+
+})();

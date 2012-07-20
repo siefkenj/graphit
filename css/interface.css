@@ -75,3 +75,33 @@
 textarea {
 	font-family: monospace !important;
 }
+
+
+.svg-stats {
+	font-size: .8em;
+	color: #777;
+}
+.svg-stats .item {
+	margin-right: 1em;
+}
+.svg-stat {
+	font-family: monospace;
+	color: #00a;
+}
+
+#thumbnails {
+	border: 1px solid black;
+	padding: 1em;
+}
+.thumbnail {
+	display: inline-block;
+	border: 1px solid black;
+}
+.thumbnail-svg {
+	background: white;
+	margin: 0px auto;
+}
+.thumbnail-caption {
+	width: 100%;
+	text-align: center;
+}
