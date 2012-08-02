@@ -3,12 +3,15 @@
 	<title>Graphit</title>
 	<!-- jQuery includes -->
 	<script type="text/javascript" src="jquery/js/jquery-1.7.2.js"></script>
+	<script type="text/javascript" src="jquery/js/jquery.json-2.3.js"></script>
 	<script type="text/javascript" src="jquery/js/jquery-ui-1.8.18.custom.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="jquery/css/redmond/jquery-ui-1.8.18.custom.css" />
+	<script type="text/javascript" src="jquery/js/jstorage.js"></script>
 
 	<!-- graphit includes -->
 	<link rel="stylesheet" type="text/css" href="css/dndimg.css" />
 	<link rel="stylesheet" type="text/css" href="css/interface.css" />
+	<script type="text/javascript" src="js/md5.js"></script>
 	<script type="text/javascript" src="js/interface.js"></script>
 	<script type="text/javascript" src="js/asciisvg.js"></script>
 
@@ -35,9 +38,9 @@
 		<div class='clearfix'>
 		<div id="container">
 			<div id="graphSettings">
-				<span id="doGraph" class="button">doGraph</span>
-				<span id="downloadGraph" class="button">downloadGraph</span>
-				<span id="saveGraph" class="button">locally save graph</span>
+				<span id="doGraph" class="button">Update Graph</span>
+				<span id="downloadGraph" class="button">Download Graph</span>
+				<!-- <span id="saveGraph" class="button">locally save graph</span> -->
 				<textarea id="picture1input" rows="20" cols="58">
 setBorder(0)
 
@@ -69,13 +72,6 @@ stroke = "red"
 				Point-slope: <input id="pointslope" type="text" value="m=3; (4,4)" /> <span id="genpointslope" class="button">make</span> <br />
 				<textarea id="genout"></textarea>
 				-->
-				<div id="thumbnails">
-					<!--<div class="ui-widget ui-widget-contents ui-corner-all ui-state-default thumbnail">-->
-					<div class="button thumbnail">
-						<div class="thumbnail-svg"></div>
-						<div class="thumbnail-caption"></div>
-					</div>
-				</div>
 			</div>
 			<div id="preview">
 				<div class='svg-stats'>
@@ -93,6 +89,17 @@ stroke = "red"
 					<svg id="target" xml:space="preserve" width="550" height="450" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
 				</div>
 			</div>
+		</div>
+		<div id="thumbnails">
+			<h3>Previously Saved Graphs</h3>
+			<span id="clearLocalStorage" class="button">Clear All</span>
+			<p>
+				Note these graphs are stored locally and will not be available on
+				another computer or different browser.  To store a graph permanently, please 
+				save it to your hard drive.
+			</p>
+			<ul>
+			</ul>
 		</div>
 		</div>
 	</div>

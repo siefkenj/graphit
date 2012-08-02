@@ -302,8 +302,6 @@ use Firefox 1.5 preview (called Deerpark)");
                     picture.parentNode.insertBefore(node, picture);
 
                     node = myCreateElementXHTML("button");
-                    if (isIE) node.onclick = ASfn[index];
-                    else node.setAttribute("onclick", "updatePicture(" + index + ")");
                     node.appendChild(document.createTextNode("Update"));
                     if (src.indexOf("showCode()") == -1) node.style.display = "none";
                     picture.parentNode.insertBefore(node, picture);
@@ -327,10 +325,21 @@ use Firefox 1.5 preview (called Deerpark)");
                 id = "picture" + (index + 1);
                 picture.setAttribute("id", id);
             }
-            try {
-                with(Math) eval(src);
-            } catch (err) {
-                alert(err + "\n" + src)
+            
+            /* evaluate the math. If there is an error, rethrow it
+             * with the line number */
+            with(Math) {
+                lines = src.split('\n');
+                for (var i = 0; i < lines.length; i++) {
+                    try {
+                        eval(lines[i]);
+                    } catch (err) {
+                        err.lineNumber = i;
+                        err.sourceLine = lines[i];
+                        err.source = src;
+                        throw err;
+                    }
+                }
             }
             if (isIE) src = src.replace(/([^\r])\n/g, "$1\r");
             setText("<embed width=\"" + width + "\" height=\"" + height + "\" src=\"" + dsvg + "\" "  + "script=\'" + src + "\'>", id + "script");
@@ -389,10 +398,21 @@ function updatePicture(src, target) {
     src = src.replace(/([0-9])([a-zA-Z])/g, "$1*$2");
     src = src.replace(/\)([\(0-9a-zA-Z])/g, "\)*$1");
     // alert(src);
-    try {
-        with(Math) eval(src);
-    } catch (err) {
-        alert(err + "\n" + src)
+
+    /* evaluate the math. If there is an error, rethrow it
+     * with the line number */
+    with(Math) {
+        lines = src.split('\n');
+        for (var i = 0; i < lines.length; i++) {
+            try {
+                eval(lines[i]);
+            } catch (err) {
+                err.lineNumber = i;
+                err.sourceLine = lines[i];
+                err.source = src;
+                throw err;
+            }
+        }
     }
 }
 
@@ -1068,89 +1088,6 @@ function updateCoords(ind) {
     if ((xmax - gx) * xunitlength > 6 * fontsize || (gy - ymin) * yunitlength > 2 * fontsize) text([xmax, ymin], "(" + gx.toFixed(2) + ", " + gy.toFixed(2) + ")", "aboveleft", "AScoord" + ind, "");
     else text([xmax, ymin], " ", "aboveleft", "AScoord" + ind, "");
 }
-
-function updateCoords0() {
-    updateCoords(0)
-}
-
-function updateCoords1() {
-    updateCoords(1)
-}
-
-function updateCoords2() {
-    updateCoords(2)
-}
-
-function updateCoords3() {
-    updateCoords(3)
-}
-
-function updateCoords4() {
-    updateCoords(4)
-}
-
-function updateCoords5() {
-    updateCoords(5)
-}
-
-function updateCoords6() {
-    updateCoords(6)
-}
-
-function updateCoords7() {
-    updateCoords(7)
-}
-
-function updateCoords8() {
-    updateCoords(8)
-}
-
-function updateCoords9() {
-    updateCoords(9)
-}
-ASfn = [function () {
-    updatePicture(0)
-}, function () {
-    updatePicture(1)
-}, function () {
-    updatePicture(2)
-}, function () {
-    updatePicture(3)
-}, function () {
-    updatePicture(4)
-}, function () {
-    updatePicture(5)
-}, function () {
-    updatePicture(6)
-}, function () {
-    updatePicture(7)
-}, function () {
-    updatePicture(8)
-}, function () {
-    updatePicture(9)
-}];
-ASupdateCoords = [function () {
-    updateCoords(0)
-}, function () {
-    updateCoords(1)
-}, function () {
-    updateCoords(2)
-}, function () {
-    updateCoords(3)
-}, function () {
-    updateCoords(4)
-}, function () {
-    updateCoords(5)
-}, function () {
-    updateCoords(6)
-}, function () {
-    updateCoords(7)
-}, function () {
-    updateCoords(8)
-}, function () {
-    updateCoords(9)
-}];
-
 
 // return an object containing updatePicture, since that is all that is needed
 return {updatePicture: updatePicture, 'about': 'AsciiSVG.updatePicture(<source code>, <svg element to render to>);\nNode, all contents of the svg will be erased and re-rendered with this command'};
