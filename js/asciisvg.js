@@ -26,6 +26,7 @@ for more details.*/
 
 AsciiSVG = (function(){
 
+var currentLineNumber = -1;
 var checkIfSVGavailable = true;
 var notifyIfNoSVG = true;
 var alertIfNoSVG = false;
@@ -332,6 +333,7 @@ use Firefox 1.5 preview (called Deerpark)");
                 lines = src.split('\n');
                 for (var i = 0; i < lines.length; i++) {
                     try {
+                        currentLineNumber = i;
                         eval(lines[i]);
                     } catch (err) {
                         err.lineNumber = i;
@@ -405,6 +407,7 @@ function updatePicture(src, target) {
         lines = src.split('\n');
         for (var i = 0; i < lines.length; i++) {
             try {
+                currentLineNumber = i;
                 eval(lines[i]);
             } catch (err) {
                 err.lineNumber = i;
@@ -576,8 +579,14 @@ function path(plist, id, c) {
     if (strokedasharray != null) node.setAttribute("stroke-dasharray", strokedasharray);
     node.setAttribute("stroke", stroke);
     node.setAttribute("fill", fill);
-    if (marker == "dot" || marker == "arrowdot") for (i = 0; i < plist.length; i++)
-    if (c != "C" && c != "T" || i != 1 && i != 2) ASdot(plist[i], markersize, markerstroke, markerfill);
+    if (marker == "dot" || marker == "arrowdot") {
+        for (i = 0; i < plist.length; i++) {
+            if (c != "C" && c != "T" || i != 1 && i != 2) ASdot(plist[i], markersize, markerstroke, markerfill);
+        }
+    }
+
+    node.setAttribute('onclick', 'AsciiSVG.clickCallback('+currentLineNumber+')')
+    node.setAttribute('onmouseover', 'AsciiSVG.mouseoverCallback.call(this,'+currentLineNumber+')')
 }
 
 function curve(plist, id) {
@@ -1090,6 +1099,11 @@ function updateCoords(ind) {
 }
 
 // return an object containing updatePicture, since that is all that is needed
-return {updatePicture: updatePicture, 'about': 'AsciiSVG.updatePicture(<source code>, <svg element to render to>);\nNode, all contents of the svg will be erased and re-rendered with this command'};
+return {
+        updatePicture: updatePicture,  // function you should call
+        'about': 'AsciiSVG.updatePicture(<source code>, <svg element to render to>);\nNode, all contents of the svg will be erased and re-rendered with this command',
+        clickCallback: function(){},  // function that gets called every time an svg element is clicked
+        mouseoverCallback: function(){}  // function that gets called every time an svg element is clicked
+        };
 
 })();

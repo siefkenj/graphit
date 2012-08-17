@@ -26,107 +26,125 @@ typeOf = (obj) ->
         return 'object'
     return constructorName
 
-round = (num, places) ->
-    p = Math.pow(10, places)
-    return Math.round(num*p)/p
 
 ###
-# Make a div/span editable upon click
+# Set up the interface
 ###
-
-makeEditable = (element, editFinishedCallback=(->return null)) ->
-    createEditbox = (parent) ->
-        parent = $(parent)
-        editbox = $('<input type="text"></input>')
-        editbox.blur ->
-            me = $(this)
-            parent.text(me.val())
-            me.hide()
-            parent.show()
-            editFinishedCallback()
-
-        editbox.keyup (event) ->
-            me = $(this)
-            # we pressed enter, so stop editing
-            if event.keyCode is 13
-                parent.text(me.val())
-                me.blur()
-            # we pressed escape, so restore the original value and so stop editing
-            if event.keyCode is 27
-                me.val(parent.text())
-                me.blur()
-        
-        return editbox
-
-    element = $(element)
-    $(element).click ->
-        me = $(this)
-        # look to see if an edit box was already created for this element.
-        # If not create one and store it
-        editbox = $.data(this, 'editbox')
-        if not editbox?
-            editbox = createEditbox(me)
-            $.data(this, 'editbox', editbox)
-        editbox.val(me.text())
-        me.after(editbox)
-        editbox.show()
-        editbox.focus()
-        editbox.select()
-        me.hide()
-        
-
-# list of all current errors that are highlighted
-highlightedErrors = []
-# unhighlight the error if that line was edited
-unhighlightErrors = (from, to, text, next) ->
-    if not from?
-        for e in highlightedErrors
-            e.clear()
-        highlightedErrors = []
-
 $(document).ready ->
-    # set up the drag and drop
-    dropbox = document.getElementById("dropbox")
-    dropbox.addEventListener("dragenter", dragEnter, false)
-    dropbox.addEventListener("dragexit", dragExit, false)
-    dropbox.addEventListener("dragover", dragOver, false)
-    dropbox.addEventListener("drop", drop, false)
+    $('.tabs').tabs()
+    $('.button').button()
 
-
-    $("#tabs").tabs()
-    $(".button").button()
-    $(".datepicker").datepicker()
-    $("#files").change openFile
-
-
-    $("#doGraph").click doGraph
-    $("#downloadGraph").click downloadSVG
-    $("#saveGraph").click( ->
-        doGraph()
-        saveGraph()
-    )
-    $("#gentwopoints").click genTwoPoints
-    $("#genpointslope").click genPointSlope
-
-    window.inputArea = CodeMirror.fromTextArea($("#picture1input")[0],
+    # set up CodeMirror in the editing window
+    window.inputArea = CodeMirror.fromTextArea($("#code")[0],
         indentWithTabs: true
         smartIndent: false # if we don't end our lines with semicolons, this will try to indent them if enabled
         mode: "text/javascript"
     )
 
-    $('.svg-stat.editable').map(-> makeEditable(this, resizeSvg))
+    $('.svg-stat.editable').map(-> makeEditable(this, resizeGraph))
 
-    # update the graph before before so the user doesnt have to press update to see anything
-    resizeSvg()
+    # set up the callbacks
+    $('#update-graph').click updateGraph
+    $('#save-graph').click saveGraph
+    $('#load-graph').click loadGraph
 
-    # load any graphs in local storage
-    loadGraphs()
-    $('#clearLocalStorage').click(->
-        $.jStorage.deleteKey('savedgraphs')
-        loadGraphs()
-    )
+    $('#history-load-from-file').click historyLoadFromFile
+    $('#history-clear-all').click historyClearAll
 
-resizeSvg = (dims) ->
+    # set up the drag-and-drop
+    $('#dropbox').hide()
+    $('body')[0].addEventListener('dragenter', FileHandler.dragEnter, false)
+    $('body')[0].addEventListener('dragexit', FileHandler.dragExit, false)
+    $('#dropbox')[0].addEventListener('dragover', FileHandler.dragOver, false)
+    $('body')[0].addEventListener('drop', FileHandler.drop, false)
+
+    # initialize everything
+    resizeGraph()
+    initializeGraphHistory()
+
+
+###
+# Draw the current graph to #svg-preview
+###
+updateGraph = ->
+    try
+        AsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0])
+    catch err
+        # see if it is an error that we can highlight
+        # in the code
+        if err.lineNumber?
+#            highlight = inputArea.markText({line: err.lineNumber, ch:0}, {line: err.lineNumber, ch:null}, 'code-error')
+#            highlightedErrors.push highlight
+            alert("#{err}\nline number: #{err.lineNumber}\nline: #{err.sourceLine}")
+        else
+            throw err
+            
+    $("#target").append("<asciisvg>" + inputArea.getValue() + "</asciisvg>")
+
+###
+# Saves the graph currently in the preview area
+###
+saveGraph = ->
+    updateGraph()
+
+    #
+    # Do the local storage bit
+    #
+
+    # clone the object and unset its id
+    cloned = $('#target').clone()
+    htmlifiedSvg = $('<div></div>').append(cloned)
+    svgText = htmlifiedSvg.html()
+
+    graphData = new GraphData(svgText)
+    graphData.onclick = loadGraphFromGraphData
+    graphData.ondelete = deleteGraphFromGraphData
+    thumbnail = graphData.createThumbnail()
+    graphData.makeDeletable()
+    $('#history-gallery .gallery-container').append(thumbnail)
+
+    # append the graph to the list kept in local storage
+
+    # This may be bad, but reload the storage before a save so
+    # we don't overwrite data that was saved from another tab...
+    $.jStorage.reInit()
+    savedGraphList = $.jStorage.get('savedgraphs') or {}
+    savedGraphList[graphData.hash()] = graphData.toJSON()
+    $.jStorage.set('savedgraphs', savedGraphList)
+
+    #
+    # Prompt to save to the harddrive
+    #
+
+    document.location.href = "data:application/octet-stream;base64," + btoa(svgText)
+
+# TODO: fix so it works in chromium/chrome...Right now we use an
+# ugly hack since we cannot trigger a click event on <input type=file
+# in chromium
+loadGraph = ->
+    if !navigator.userAgent.match('Chrome')
+        # do some magic to pop open a file-request dialog
+        fileInput = $('<input type="file" id="files" name="files[]" accept="image/svg+xml" />')
+        fileInput.change (event) ->
+            files = event.target.files
+            FileHandler.handleFiles(files)
+        fileInput.trigger('click')
+    else
+        # fallback 'cause we cannot trigger a click on a file input...
+        dialog = $('''
+            <div>
+                <h3>Browse for the file you wish to upload</h3>
+                <input type="file" id="files" name="files[]" accept="image/svg+xml" />
+            </div>''')
+        $(document.body).append(dialog)
+        dialog.dialog({ height: 300, width: 500, modal: true })
+        dialog.find('input').change (event) ->
+            files = event.target.files
+            FileHandler.handleFiles(files)
+            dialog.remove()
+            
+
+resizeGraph = (dims) ->
     if not dims?.width or dims?.height
         dims =
             width: Math.max(1, parseInt($('#svg-stat-width').text(),10))
@@ -135,257 +153,200 @@ resizeSvg = (dims) ->
     $('#svg-stat-aspect').text(round(aspect,2))
 
     $('#target').attr({width: dims.width, height: dims.height})
-    doGraph()
+    updateGraph()
 
+#
+# Set the preview and sourcecode window to the svg corresponding
+# to svgText
+#
+setGraphFromSvg = (svgText) ->
+    graphData = new GraphData(svgText)
+    inputArea.setValue(graphData.javascriptText)
+    $('#svg-stat-width').text(graphData.width)
+    $('#svg-stat-height').text(graphData.height)
+    $('#svg-preview').html(graphData.svgText)
+    $('#svg-preview svg').attr({id: 'target', width: graphData.width, height: graphData.height})
+    
 
-###
-# load the graphs from local storage
-###
-loadGraphs = ->
-    thumnailList = $('#thumbnails ul')
+#
+# Load all the graphs that are saved in localstorage
+#
+initializeGraphHistory = ->
+    thumnailList = $('#history-gallery .gallery-container')
     $.jStorage.reInit()
     savedGraphList = $.jStorage.get('savedgraphs') or {}
     thumnailList.empty()
     for key, graph of savedGraphList
         graph = GraphData.fromJSON(graph)
-        thumbnail = graph.createThumbnail(importSVG)
-        graph.makeDeletableFromLocalStorage()
+        graph.onclick = loadGraphFromGraphData
+        graph.ondelete = deleteGraphFromGraphData
+
+        thumbnail = graph.createThumbnail()
+        graph.makeDeletable()
+
         thumnailList.append(thumbnail)
-    
-
-###
-# save the graph to local storage
-###
-saveGraph = ->
-    # clone the object and unset its id
-    cloned = $('#target').clone()
-    cloned.attr({id:null})
-    width = parseInt(cloned.attr('width'), 10)
-    height = parseInt(cloned.attr('height'), 10)
-    cloned.attr({width: width/5, height:height/5})
-    # jquery lower-cases all attrs, so we have to do this one the old fashoned way
-    # set the viewbox so that things are scaled appropriately
-    cloned[0].setAttribute('viewBox',"0 0 #{width} #{height}")
-
-    # to get the text of the svg, we have to append it to an element
-    # first since svg elements don't have an innerHtml...
-    htmlifiedSvg = $('<div></div>').append(cloned)
-    svgText = htmlifiedSvg.html()
-    # use the code emdedded with the svg (which could theoretically 
-    # be unrelated to the code currently in inputArea
-    javascriptText = htmlifiedSvg.find('asciisvg').text()
-
-    graphData = new GraphData(svgText, javascriptText)
-    
-    thumbnail = graphData.createThumbnail(importSVG)
-    $('#thumbnails ul').append(thumbnail)
-    graphData.makeDeletableFromLocalStorage()
-
-    # append the graph to the list kept in local storage
-
-    # This may be bad, but reload the storage before a save so
-    # we don't overwrite data that was saved from another tab...
-    $.jStorage.reInit()
-    savedGraphList = $.jStorage.get('savedgraphs') or {}
-    savedGraphList[graphData.hash()] = graphData
-    $.jStorage.set('savedgraphs', savedGraphList)
-
-###
-# deletes a graph from local storage
 #
-# graph should be a GraphData.hash() string or a GraphData object
-###
-deleteGraph = (graph=this) ->
-    if typeOf(graph) is 'GraphData'
-        graph = graph.hash()
-    console.log graph
+# Loads the graph given by graphData into the preview
+#
+loadGraphFromGraphData = (graphData) ->
+    $('#svg-stat-width').text(graphData.width) if graphData.width
+    $('#svg-stat-height').text(graphData.height) if graphData.height
+    inputArea.setValue(graphData.javascriptText)
+
+    resizeGraph()
+
+historyLoadFromFile = ->
+    loadGraph()
+
+historyClearAll = ->
+    $('#history-gallery .gallery-container').empty()
 
     $.jStorage.reInit()
+    $.jStorage.set('savedgraphs', {})
+
+#
+# Removes the graph given by graphData from localstorage and
+# deletes the thumbnail
+#
+deleteGraphFromGraphData = (graphData) ->
+    if typeOf(graphData) is 'GraphData'
+        hash = graphData.hash()
+    else
+        hash = graphData
+
+    # First delete from localstorage
+    $.jStorage.reInit()
     savedGraphList = $.jStorage.get('savedgraphs') or {}
-    delete savedGraphList[graph]
+    delete savedGraphList[hash]
     $.jStorage.set('savedgraphs', savedGraphList)
 
-doGraph = ->
-    unhighlightErrors()
-    try
-        AsciiSVG.updatePicture inputArea.getValue(), $("#target")[0]
-    catch err
-        # see if it is an error that we can highlight
-        # in the code
-        if err.lineNumber?
-            highlight = inputArea.markText({line: err.lineNumber, ch:0}, {line: err.lineNumber, ch:null}, 'code-error')
-            highlightedErrors.push highlight
-            alert("#{err}\nline number: #{err.lineNumber}\nline: #{err.sourceLine}")
+    # Now delete the thumbnail
+    if graphData.thumbnail?
+        graphData.thumbnail.remove()
+    
+FileHandler =
+    decodeDataURI: (dataURI) ->
+        content = dataURI.indexOf(",")
+        meta = dataURI.substr(5, content).toLowerCase()
+        data = decodeURIComponent(dataURI.substr(content + 1))
+        data = atob(data)    if /;\s*base64\s*[;,]/.test(meta)
+        data = decodeURIComponent(escape(data))    if /;\s*charset=[uU][tT][fF]-?8\s*[;,]/.test(meta)
+        data
+    
+    handleFiles: (files) ->
+        file = files[0]
+        #document.getElementById("droplabel").innerHTML = "Processing " + file.name
+        reader = new FileReader()
+        reader.onprogress = FileHandler.handleReaderProgress
+        reader.onloadend = FileHandler.handleReaderLoadEnd
+        reader.readAsDataURL file
+    
+    handleReaderProgress: (evt) ->
+        percentLoaded = (evt.loaded / evt.total) if evt.lengthComputable
+    
+    handleReaderLoadEnd: (evt) ->
+        if evt.target.error
+            throw new Error(evt.target.error + " Error Code: " + evt.target.error.code + " ")
+            return
+        data = FileHandler.decodeDataURI(evt.target.result)
+        setGraphFromSvg data
+
+    dragEnter: (evt) ->
+        $('#dropbox').show()
+        $('.tabs').hide()
+        evt.stopPropagation()
+        evt.preventDefault()
+    dragExit: (evt) ->
+        $('#dropbox').hide()
+        $('#dropbox').removeClass('dropbox-hover')
+        $('.tabs').show()
+        evt.stopPropagation()
+        evt.preventDefault()
+    dragOver: (evt,b) ->
+        $('#dropbox').addClass('dropbox-hover')
+        evt.stopPropagation()
+        evt.preventDefault()
+    drop: (evt) ->
+        evt.stopPropagation()
+        evt.preventDefault()
+        files = evt.dataTransfer.files
+        count = files.length
+        FileHandler.handleFiles files if count > 0
+        # fake the exit of a drag event...
+        FileHandler.dragExit()
+
+
+###
+# interface utility functions
+###
+
+# rounds to the desired number of decimal places
+round = (num, places) ->
+    p = Math.pow(10, places)
+    return Math.round(num*p)/p
+
+# take text or a number and make sure it's valid
+validateNumber = (txt, positive=true, integer=true, max=10e10, min=-10e10) ->
+    ret = 0
+    switch typeOf(txt)
+        when 'number'
+            ret = txt
+        when 'string'
+            ret = parseFloat(txt)
+    # verify that the number is in range and isnt NaN
+    if isNaN(ret)
+        ret = 0
+    if ret > max
+        ret = max
+    else if ret < min
+        ret = min
+
+    ret = Math.abs(ret) if positive
+    ret = Math.round(ret) if integer
+    return ret
+
+makeEditable = (element, editFinishedCallback=(->return null)) ->
+    element = $(element)
+    previousValue = element.html()
+
+    # set up a change event for contenteditable elements
+    element.live 'focus', ->
+        $this = $(this)
+        $this.data 'before', $this.html()
+        $this.data 'initial-text', $this.html()
+        return $this
+    element.live 'blur keyup paste', ->
+        $this = $(this)
+        if $this.data('before') isnt $this.html()
+            $this.data 'before', $this.html()
+            $this.trigger('change')
+        return $this
+
+    # on enter or esc we are done editing
+    element.keydown (event) ->
+        $this = $(this)
+        # we pressed enter
+        if event.which is 13
+            $(this).blur()
+            event.stopPropagation()
+        # we pressed escape
+        if event.which is 27
+            $this.html($this.data('initial-text'))
+            $this.blur()
+            event.stopPropagation()
+
+    # on blur, validate 
+    element.blur (event) ->
+        $this = $(this)
+        text = $this.text()
+        num = validateNumber(text)
+        # setting dims to 0 shouldn't be allowed
+        if num is 0
+            $this.html $this.data('initial-text')
         else
-            throw err
-            
-    $("#target").append "<asciisvg>" + inputArea.getValue() + "</asciisvg>"
+            $this.html(''+num)
 
-importSVG = (svgText) ->
-    if typeOf(svgText) is 'GraphData'
-        # if we are a GraphData object, get the actual text of the svg
-        svgText = svgText.svgText
-    svg = $(svgText)
-    # if there is a viewbox defined, we want to use it to retrieve the original
-    # dimensions of the svg from when it was created (since it is changed
-    # when made into a thumbnail)
-    viewBox = svg[0].getAttribute('viewBox')
-    width = svg[0].getAttribute('width')
-    height = svg[0].getAttribute('height')
-    if viewBox?
-        match = viewBox.match(/\d+ \d+ (\d+) (\d+)/)
-        width = match?[1]
-        height = match?[2]
-
-    # place the svg where it should be with the right dimensions and give it
-    # the id of 'target'
-    svg.attr({width: width, height: height, id:'target'})
-    $("#outputNode").html svg
-
-    # if we have an embedded asciisvg command, grab it
-    previousAsciisvgCommand = $("#outputNode svg asciisvg").text()
-    inputArea.setValue previousAsciisvgCommand    if previousAsciisvgCommand
-
-    # make sure our width and height properties are set correctly
-    $('#svg-stat-width').text(width)
-    $('#svg-stat-height').text(height)
-    resizeSvg()
-
-# Generate a line through the given points
-genTwoPoints = ->
-    text = $("#twopoints").val()
-    match = text.match(/\((.*),(.*)\)\s*;\s*\((.*),(.*)\)/)
-    return    unless match
-    x1 = undefined
-    y1 = undefined
-    x2 = undefined
-    y2 = undefined
-    x1 = match[1]
-    y1 = match[2]
-    x2 = match[3]
-    y2 = match[4]
-    m = (y2 - y1) / (x2 - x1)
-    outputEquation = "plot(\"" + m + "*(x-(" + x1 + "))+(" + y1 + ")\")\n"
-    outputEquation += "dot([" + x1 + "," + y1 + "], \"closed\")\n"
-    outputEquation += "dot([" + x2 + "," + y2 + "], \"closed\")\n"
-    $("#genout").val outputEquation
-
-# Generate a line through the given points
-genPointSlope = ->
-    text = $("#pointslope").val()
-    match = text.match(/m=(.*)\s*;\s*\((.*),(.*)\)/)
-    return    unless match
-    m = undefined
-    x1 = undefined
-    y1 = undefined
-    m = match[1]
-    x1 = match[2]
-    y1 = match[3]
-    outputEquation = "plot(\"" + m + "*(x-(" + x1 + "))+(" + y1 + ")\")\n"
-    outputEquation += "dot([" + x1 + "," + y1 + "], \"closed\")\n"
-    $("#genout").val outputEquation
-
-downloadSVG = ->
-    $("#doGraph").click()
-    saveGraph()
-    document.location.href = "data:application/octet-stream;base64," + btoa($("#outputNode").html())
-
-###
-# Drag and drop stuff
-###
-decodeDataURI = (dataURI) ->
-    content = dataURI.indexOf(",")
-    meta = dataURI.substr(5, content).toLowerCase()
-    data = decodeURIComponent(dataURI.substr(content + 1))
-    data = atob(data)    if /;\s*base64\s*[;,]/.test(meta)
-    data = decodeURIComponent(escape(data))    if /;\s*charset=[uU][tT][fF]-?8\s*[;,]/.test(meta)
-    data
-
-dragEnter = (evt) ->
-    evt.stopPropagation()
-    evt.preventDefault()
-dragExit = (evt) ->
-    evt.stopPropagation()
-    evt.preventDefault()
-dragOver = (evt) ->
-    evt.stopPropagation()
-    evt.preventDefault()
-drop = (evt) ->
-    evt.stopPropagation()
-    evt.preventDefault()
-    files = evt.dataTransfer.files
-    count = files.length
-    handleFiles files    if count > 0
-openFile = (evt) ->
-    files = evt.target.files
-    handleFiles files    if files.length > 0
-handleFiles = (files) ->
-    file = files[0]
-    document.getElementById("droplabel").innerHTML = "Processing " + file.name
-    reader = new FileReader()
-    reader.onprogress = handleReaderProgress
-    reader.onloadend = handleReaderLoadEnd
-    reader.readAsDataURL file
-handleReaderProgress = (evt) ->
-    loaded = (evt.loaded / evt.total)    if evt.lengthComputable
-handleReaderLoadEnd = (evt) ->
-    if evt.target.error
-        $("#errorCode").html evt.target.error + " Error Code: " + evt.target.error.code + " "
-        $("#errorDialog").dialog "open"
-        return
-    data = decodeDataURI(evt.target.result)
-    importSVG data
-
-
-class GraphData
-    constructor: (@svgText, @javascriptText='', @name=null) ->
-        @creationDate = new Date()
-    createThumbnail: (callback) =>
-        @thumbnail = $('''<li class="button thumbnail">
-                            <div class="thumbnail-svg"></div>
-                            <div class="thumbnail-caption"></div>
-                         </li>''')
-        @thumbnail.click(=> callback(this))
-        @thumbnail.find('.thumbnail-svg').html @svgText
-        @thumbnail.find('.thumbnail-caption').html @creationDate.toLocaleDateString()
-        @thumbnail.button()
-
-        return @thumbnail
-
-    makeDeletableFromLocalStorage: ->
-        @deleteButton = $('<div class="thumbnail-delete-button">X</div>')
-        @deleteButton.click(=>
-            deleteGraph(@)
-            @thumbnail.remove()
-        )
-
-        @thumbnail.prepend(@deleteButton)
-        #@deleteButton.hide()
-        #@thumbnail.hover( => @deleteButton.show() )
-
-    toString: ->
-        ret =
-            svgText: @svgText
-            javascriptText: @javascriptText
-            name: @name
-            creationDate: @creationDate.toJSON()
-        
-        return $.toJSON(ret)
-
-    # a hopefully unique hash that isn't too long for use in local storage
-    hash: ->
-        return hex_md5(@.toString())
-
-    # return a new GraphData constructed from a stringified version of a GraphData object
-    @fromJSON: (obj) ->
-        if typeOf(obj) is 'string'
-            obj = $.fromJSON(obj)
-
-        ret = new GraphData
-        ret.svgText = obj.svgText if obj.svgText?
-        ret.javascriptText = obj.javascriptText if obj.javascriptText?
-        ret.name = obj.name if obj.name?
-        ret.creationDate = new Date(obj.creationDate) if obj.creationDate?
-
-        return ret
+        if $this.html() isnt previousValue
+            previousValue = $this.html()
+            editFinishedCallback($this.html())
 

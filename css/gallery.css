@@ -1,0 +1,90 @@
+/*
+ * Styles for gallery elements
+ */
+/* jquery-ui colors
+ * #C5DBEC -- light blue
+ * #2E6E9E -- dark blue
+ */
+.gallery {
+	background-image: url("../images/background_stripe.png");
+	background-repeat: repeat;
+}
+.gallery h2 {
+	padding-left: 1em;
+	margin: 0px;
+}
+.gallery-container {
+	border: 1px black;
+}
+.gallery-item {
+	margin: .5em;
+	padding: .5em;
+	width: 30em;
+	height: 13em;
+	background: #fffffa;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+	box-shadow: 0px 0px .4em #aaa;
+	position: relative;
+	display: inline-block;
+}
+.gallery-item:hover {
+	box-shadow: 0px 0px .4em #2E6E9E;
+}
+
+.gallery-thumbnail {
+	width: 12em;
+	height: 12em;
+	background: pink;
+	float: left;
+	position: absolute;
+}
+.gallery-text-area {
+	margin-left: 12.6em;
+	padding-left: .4em;
+	position: relative;
+	height: 100%;
+	float: left;
+}
+.gallery-text {
+	font-size: .8em;
+	padding: .5em;
+}
+.gallery-text .label {
+	color: #999;
+	font-weight: bold;
+	font-style: italic;
+}
+.gallery-creation-date {
+	position: absolute;
+	bottom: 0;
+}
+.gallery-close-icon {
+	position: absolute;
+	right: .3em;
+	top: .3em;
+	height: 1.5em;
+	width: 1.5em;
+}
+.gallery-close-icon {
+/* make the galler-close-icon appear when hovering with a fancy css transition */
+	/* visibility: hidden; */
+	opacity: 0;
+	transition-property: opacity;
+	transition-duration: 0.5s;
+	-moz-transition-property: opacity;
+	-moz-transition-duration: 0.5s;
+	-webkit-transition-property: opacity;
+	-webkit-transition-duration: 0.5s;
+}
+.gallery-item:hover .gallery-close-icon {
+	/* visibility: visible; */
+	opacity: 1;
+	transition-property: opacity;
+	transition-duration: 0.3s;
+	-moz-transition-property: opacity;
+	-moz-transition-duration: 0.3s;
+	-webkit-transition-property: opacity;
+	-webkit-transition-duration: 0.3s;
+}
+

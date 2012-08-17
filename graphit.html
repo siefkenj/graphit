@@ -1,19 +1,34 @@
-<html>
+<!DOCTYPE html>
+<html class="no-js">
 <head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<title>Graphit</title>
-	<!-- jQuery includes -->
-	<script type="text/javascript" src="jquery/js/jquery-1.7.2.js"></script>
-	<script type="text/javascript" src="jquery/js/jquery.json-2.3.js"></script>
+	<meta name="description" content="">
+	<meta name="viewport" content="width=device-width">
+
+	<!-- Place favicon.ico and apple-touch-icon.png in the root directory: mathiasbynens.be/notes/touch-icons -->
+
+	<link rel="stylesheet" href="css/main.css">
+	<script src="js/vendor/modernizr-2.6.1.min.js"></script>
+
+	<!-- jquery includes -->
+	<!-- <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script> -->
+	<script src="jquery/js/jquery-1.7.2.js"></script>
+	<script src="js/plugins.js"></script>
 	<script type="text/javascript" src="jquery/js/jquery-ui-1.8.18.custom.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="jquery/css/redmond/jquery-ui-1.8.18.custom.css" />
+	<script type="text/javascript" src="jquery/js/jquery.json-2.3.js"></script>
 	<script type="text/javascript" src="jquery/js/jstorage.js"></script>
-
+	
 	<!-- graphit includes -->
-	<link rel="stylesheet" type="text/css" href="css/dndimg.css" />
-	<link rel="stylesheet" type="text/css" href="css/interface.css" />
-	<script type="text/javascript" src="js/md5.js"></script>
-	<script type="text/javascript" src="js/interface.js"></script>
-	<script type="text/javascript" src="js/asciisvg.js"></script>
+	<script src="js/interface.js"></script>
+	<script src="js/asciisvg.js"></script>
+	<script src="js/md5.js"></script>
+	<link rel="stylesheet" href="css/interface.css">
+	<!-- load the thumbnail gallery code -->
+	<script src="js/gallery.js"></script>
+	<link rel="stylesheet" href="css/gallery.css">
 
 	<!-- CodeMirror -->
 	<script src="codemirror/lib/codemirror.js"></script>
@@ -21,27 +36,27 @@
 	<script src="codemirror/mode/javascript/javascript.js"></script>
 </head>
 <body>
-<div id="tabs">
-	<ul>
-		<li><a href="#tab-importData">Import Data</a></li>
-		<li><a href="#tab-graph">Graph</a></li>
-	</ul>
-	<div id="tab-importData">
-		<div class='clearfix'>
-		<div class='float-left'>
-				<input type="file" id="files" name="files[]" accept="text/csv" />
-				<div id="dropbox"><span id="droplabel">Drop CSV File</span></div>
-		</div>
-		</div>
-	</div>
-	<div id="tab-graph">
-		<div class='clearfix'>
-		<div id="container">
-			<div id="graphSettings">
-				<span id="doGraph" class="button">Update Graph</span>
-				<span id="downloadGraph" class="button">Download Graph</span>
-				<!-- <span id="saveGraph" class="button">locally save graph</span> -->
-				<textarea id="picture1input" rows="20" cols="58">
+	<!--[if lt IE 7]>
+		<p class="chromeframe">You are using an outdated browser. <a href="http://browsehappy.com/">Upgrade your browser today</a> or <a href="http://www.google.com/chromeframe/?redirect=true">install Google Chrome Frame</a> to better experience this site.</p>
+	<![endif]-->
+	<div id='dropbox' class='ui-widget-content ui-corner-all'>Drop files here</div>
+
+	<div class='tabs'>
+		<ul>
+			<li><a href='#graph'>Graph</a></li>
+			<li><a href='#examples'>Examples</a></li>
+			<li><a href='#help'>Help</a></li>
+		</ul>
+		<div id='graph'>
+			<div class='work-area clearfix'>
+				<div class='left'>
+					<div class='toolbar'>
+						<span class='button' id='update-graph'>Update Graph</span>
+						<span class='button' id='save-graph'>Save Graph</span>
+						<span class='button' id='load-graph'>Load Graph</span>
+					</div>
+					<div class='code-area'>
+						<textarea id='code' rows='20' cols='58'>
 setBorder(0)
 
 initPicture(-4.3,4.3,-3.3,3.3)
@@ -66,43 +81,81 @@ stroke = "red"
 //dot([pi,0], "open", cpi)
 
 //text([-2.5,-2.5], "ASCIIsvg Examplee")
-				</textarea> <br />
-				<!--
-				Line through points: <input id="twopoints" type="text" value="(0,0); (4,4)" /> <span id="gentwopoints" class="button">make</span> <br />
-				Point-slope: <input id="pointslope" type="text" value="m=3; (4,4)" /> <span id="genpointslope" class="button">make</span> <br />
-				<textarea id="genout"></textarea>
-				-->
-			</div>
-			<div id="preview">
-				<div class='svg-stats'>
-				<span class='item'>
-					Width: <span id='svg-stat-width' class='svg-stat editable'>550</span>px
-				</span>
-				<span class='item'>
-					Height: <span id='svg-stat-height' class='svg-stat editable'>450</span>px
-				</span>
-				<span class='item'>
-					Aspect-Ratio: <span id='svg-stat-aspect' class='svg-stat'>1</span>
-				</span>
+						</textarea>
+					</div>
 				</div>
-				<div id="outputNode">
-					<svg id="target" xml:space="preserve" width="550" height="450" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+				<div class='right'>
+					<div class='svg-area'>
+						<div class='svg-stats'>
+							<span class='item'>
+								Width: <span id='svg-stat-width' class='svg-stat editable' contenteditable='true'>550</span>px
+							</span>
+							<span class='item'>
+								Height: <span id='svg-stat-height' class='svg-stat editable' contenteditable='true'>450</span>px
+							</span>
+							<span class='item'>
+								Aspect-Ratio: <span id='svg-stat-aspect' class='svg-stat'>1</span>
+							</span>
+						</div>
+						<div id="svg-preview">
+							<svg id="target" xml:space="preserve" width="550" height="450" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+						</div>					
+					</div>
+				</div>
+			</div>
+			<div class='gallery' id='history-gallery'>
+				<h2 class='ui-widget-header'>Previously Saved Graphs</h2>
+				<div style='padding: 1em 1em 0em 1em; width: 100%;'>
+					<span class='button' id='history-load-from-file'>Load From File</span>
+					<span class='button' id='history-clear-all'>Clear All</span>
+					<p>
+						Note these graphs are stored locally 
+						and will not be available on
+						another computer or different browser.  
+						To store a graph permanently, please 
+						save it to your hard drive.
+					</p>
+				</div>
+				<div class='gallery-container clearfix'>
 				</div>
 			</div>
 		</div>
-		<div id="thumbnails">
-			<h3>Previously Saved Graphs</h3>
-			<span id="clearLocalStorage" class="button">Clear All</span>
-			<p>
-				Note these graphs are stored locally and will not be available on
-				another computer or different browser.  To store a graph permanently, please 
-				save it to your hard drive.
-			</p>
-			<ul>
-			</ul>
+		<div id='examples'>
+			<div class='gallery'>
+				<h2 class='ui-widget-header'>Examples</h2>
+				<div style='padding: 1em 1em 0em 1em; width: 100%;'>
+					Click on a thumbnail to load.
+				</div>
+				<div class='gallery-container clearfix'>
+
+					<div class='gallery-item' title='Click to load this graph'>
+						<div class='gallery-thumbnail'></div>
+						<div class='gallery-text-area'>
+							<div class='gallery-text'>
+								<div class='gallery-description'>
+								<span class='label'>Description:</span>
+								<span class='content'>
+								This is a description of this image. It
+								has lots of nice properties and so forth
+								you should really have a look!
+								</span>
+								</div>
+								<div class='gallery-creation-date'>
+								<span class='label'>Creation Date:</span>
+								July 4, 1992 at 10:23pm
+								</div>
+							</div>
+						</div>
+						<div class='gallery-close-icon ui-state-default'>
+						<a href='#' class='ui-icon ui-icon-close' title='Delete'></a>
+						</div>
+					</div>
+				</div>
+			</div>
 		</div>
+		<div id='help'>
 		</div>
 	</div>
-</div>
+
 </body>
 </html>

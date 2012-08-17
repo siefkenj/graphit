@@ -4,8 +4,7 @@
 # that are instances of those types.
 */
 
-var GraphData, decodeDataURI, deleteGraph, doGraph, downloadSVG, dragEnter, dragExit, dragOver, drop, genPointSlope, genTwoPoints, handleFiles, handleReaderLoadEnd, handleReaderProgress, highlightedErrors, importSVG, loadGraphs, makeEditable, openFile, resizeSvg, round, saveGraph, typeOf, unhighlightErrors,
-  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+var FileHandler, deleteGraphFromGraphData, historyClearAll, historyLoadFromFile, initializeGraphHistory, loadGraph, loadGraphFromGraphData, makeEditable, resizeGraph, round, saveGraph, setGraphFromSvg, typeOf, updateGraph, validateNumber;
 
 typeOf = function(obj) {
   var constructor, constructorName, guess, objectTypes, type;
@@ -35,117 +34,106 @@ typeOf = function(obj) {
   return constructorName;
 };
 
-round = function(num, places) {
-  var p;
-  p = Math.pow(10, places);
-  return Math.round(num * p) / p;
-};
-
 /*
-# Make a div/span editable upon click
+# Set up the interface
 */
 
 
-makeEditable = function(element, editFinishedCallback) {
-  var createEditbox;
-  if (editFinishedCallback == null) {
-    editFinishedCallback = (function() {
-      return null;
-    });
-  }
-  createEditbox = function(parent) {
-    var editbox;
-    parent = $(parent);
-    editbox = $('<input type="text"></input>');
-    editbox.blur(function() {
-      var me;
-      me = $(this);
-      parent.text(me.val());
-      me.hide();
-      parent.show();
-      return editFinishedCallback();
-    });
-    editbox.keyup(function(event) {
-      var me;
-      me = $(this);
-      if (event.keyCode === 13) {
-        parent.text(me.val());
-        me.blur();
-      }
-      if (event.keyCode === 27) {
-        me.val(parent.text());
-        return me.blur();
-      }
-    });
-    return editbox;
-  };
-  element = $(element);
-  return $(element).click(function() {
-    var editbox, me;
-    me = $(this);
-    editbox = $.data(this, 'editbox');
-    if (!(editbox != null)) {
-      editbox = createEditbox(me);
-      $.data(this, 'editbox', editbox);
-    }
-    editbox.val(me.text());
-    me.after(editbox);
-    editbox.show();
-    editbox.focus();
-    editbox.select();
-    return me.hide();
-  });
-};
-
-highlightedErrors = [];
-
-unhighlightErrors = function(from, to, text, next) {
-  var e, _i, _len;
-  if (!(from != null)) {
-    for (_i = 0, _len = highlightedErrors.length; _i < _len; _i++) {
-      e = highlightedErrors[_i];
-      e.clear();
-    }
-    return highlightedErrors = [];
-  }
-};
-
 $(document).ready(function() {
-  var dropbox;
-  dropbox = document.getElementById("dropbox");
-  dropbox.addEventListener("dragenter", dragEnter, false);
-  dropbox.addEventListener("dragexit", dragExit, false);
-  dropbox.addEventListener("dragover", dragOver, false);
-  dropbox.addEventListener("drop", drop, false);
-  $("#tabs").tabs();
-  $(".button").button();
-  $(".datepicker").datepicker();
-  $("#files").change(openFile);
-  $("#doGraph").click(doGraph);
-  $("#downloadGraph").click(downloadSVG);
-  $("#saveGraph").click(function() {
-    doGraph();
-    return saveGraph();
-  });
-  $("#gentwopoints").click(genTwoPoints);
-  $("#genpointslope").click(genPointSlope);
-  window.inputArea = CodeMirror.fromTextArea($("#picture1input")[0], {
+  $('.tabs').tabs();
+  $('.button').button();
+  window.inputArea = CodeMirror.fromTextArea($("#code")[0], {
     indentWithTabs: true,
     smartIndent: false,
     mode: "text/javascript"
   });
   $('.svg-stat.editable').map(function() {
-    return makeEditable(this, resizeSvg);
+    return makeEditable(this, resizeGraph);
   });
-  resizeSvg();
-  loadGraphs();
-  return $('#clearLocalStorage').click(function() {
-    $.jStorage.deleteKey('savedgraphs');
-    return loadGraphs();
-  });
+  $('#update-graph').click(updateGraph);
+  $('#save-graph').click(saveGraph);
+  $('#load-graph').click(loadGraph);
+  $('#history-load-from-file').click(historyLoadFromFile);
+  $('#history-clear-all').click(historyClearAll);
+  $('#dropbox').hide();
+  $('body')[0].addEventListener('dragenter', FileHandler.dragEnter, false);
+  $('body')[0].addEventListener('dragexit', FileHandler.dragExit, false);
+  $('#dropbox')[0].addEventListener('dragover', FileHandler.dragOver, false);
+  $('body')[0].addEventListener('drop', FileHandler.drop, false);
+  resizeGraph();
+  return initializeGraphHistory();
 });
 
-resizeSvg = function(dims) {
+/*
+# Draw the current graph to #svg-preview
+*/
+
+
+updateGraph = function() {
+  try {
+    AsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0]);
+  } catch (err) {
+    if (err.lineNumber != null) {
+      alert("" + err + "\nline number: " + err.lineNumber + "\nline: " + err.sourceLine);
+    } else {
+      throw err;
+    }
+  }
+  return $("#target").append("<asciisvg>" + inputArea.getValue() + "</asciisvg>");
+};
+
+/*
+# Saves the graph currently in the preview area
+*/
+
+
+saveGraph = function() {
+  var cloned, graphData, htmlifiedSvg, savedGraphList, svgText, thumbnail;
+  updateGraph();
+  cloned = $('#target').clone();
+  htmlifiedSvg = $('<div></div>').append(cloned);
+  svgText = htmlifiedSvg.html();
+  graphData = new GraphData(svgText);
+  graphData.onclick = loadGraphFromGraphData;
+  graphData.ondelete = deleteGraphFromGraphData;
+  thumbnail = graphData.createThumbnail();
+  graphData.makeDeletable();
+  $('#history-gallery .gallery-container').append(thumbnail);
+  $.jStorage.reInit();
+  savedGraphList = $.jStorage.get('savedgraphs') || {};
+  savedGraphList[graphData.hash()] = graphData.toJSON();
+  $.jStorage.set('savedgraphs', savedGraphList);
+  return document.location.href = "data:application/octet-stream;base64," + btoa(svgText);
+};
+
+loadGraph = function() {
+  var dialog, fileInput;
+  if (!navigator.userAgent.match('Chrome')) {
+    fileInput = $('<input type="file" id="files" name="files[]" accept="image/svg+xml" />');
+    fileInput.change(function(event) {
+      var files;
+      files = event.target.files;
+      return FileHandler.handleFiles(files);
+    });
+    return fileInput.trigger('click');
+  } else {
+    dialog = $('<div>\n    <h3>Browse for the file you wish to upload</h3>\n    <input type="file" id="files" name="files[]" accept="image/svg+xml" />\n</div>');
+    $(document.body).append(dialog);
+    dialog.dialog({
+      height: 300,
+      width: 500,
+      modal: true
+    });
+    return dialog.find('input').change(function(event) {
+      var files;
+      files = event.target.files;
+      FileHandler.handleFiles(files);
+      return dialog.remove();
+    });
+  }
+};
+
+resizeGraph = function(dims) {
   var aspect;
   if (!(dims != null ? dims.width : void 0) || (dims != null ? dims.height : void 0)) {
     dims = {
@@ -159,17 +147,26 @@ resizeSvg = function(dims) {
     width: dims.width,
     height: dims.height
   });
-  return doGraph();
+  return updateGraph();
 };
 
-/*
-# load the graphs from local storage
-*/
+setGraphFromSvg = function(svgText) {
+  var graphData;
+  graphData = new GraphData(svgText);
+  inputArea.setValue(graphData.javascriptText);
+  $('#svg-stat-width').text(graphData.width);
+  $('#svg-stat-height').text(graphData.height);
+  $('#svg-preview').html(graphData.svgText);
+  return $('#svg-preview svg').attr({
+    id: 'target',
+    width: graphData.width,
+    height: graphData.height
+  });
+};
 
-
-loadGraphs = function() {
+initializeGraphHistory = function() {
   var graph, key, savedGraphList, thumbnail, thumnailList, _results;
-  thumnailList = $('#thumbnails ul');
+  thumnailList = $('#history-gallery .gallery-container');
   $.jStorage.reInit();
   savedGraphList = $.jStorage.get('savedgraphs') || {};
   thumnailList.empty();
@@ -177,316 +174,221 @@ loadGraphs = function() {
   for (key in savedGraphList) {
     graph = savedGraphList[key];
     graph = GraphData.fromJSON(graph);
-    thumbnail = graph.createThumbnail(importSVG);
-    graph.makeDeletableFromLocalStorage();
+    graph.onclick = loadGraphFromGraphData;
+    graph.ondelete = deleteGraphFromGraphData;
+    thumbnail = graph.createThumbnail();
+    graph.makeDeletable();
     _results.push(thumnailList.append(thumbnail));
   }
   return _results;
 };
 
-/*
-# save the graph to local storage
-*/
+loadGraphFromGraphData = function(graphData) {
+  if (graphData.width) {
+    $('#svg-stat-width').text(graphData.width);
+  }
+  if (graphData.height) {
+    $('#svg-stat-height').text(graphData.height);
+  }
+  inputArea.setValue(graphData.javascriptText);
+  return resizeGraph();
+};
 
+historyLoadFromFile = function() {
+  return loadGraph();
+};
 
-saveGraph = function() {
-  var cloned, graphData, height, htmlifiedSvg, javascriptText, savedGraphList, svgText, thumbnail, width;
-  cloned = $('#target').clone();
-  cloned.attr({
-    id: null
-  });
-  width = parseInt(cloned.attr('width'), 10);
-  height = parseInt(cloned.attr('height'), 10);
-  cloned.attr({
-    width: width / 5,
-    height: height / 5
-  });
-  cloned[0].setAttribute('viewBox', "0 0 " + width + " " + height);
-  htmlifiedSvg = $('<div></div>').append(cloned);
-  svgText = htmlifiedSvg.html();
-  javascriptText = htmlifiedSvg.find('asciisvg').text();
-  graphData = new GraphData(svgText, javascriptText);
-  thumbnail = graphData.createThumbnail(importSVG);
-  $('#thumbnails ul').append(thumbnail);
-  graphData.makeDeletableFromLocalStorage();
+historyClearAll = function() {
+  $('#history-gallery .gallery-container').empty();
+  $.jStorage.reInit();
+  return $.jStorage.set('savedgraphs', {});
+};
+
+deleteGraphFromGraphData = function(graphData) {
+  var hash, savedGraphList;
+  if (typeOf(graphData) === 'GraphData') {
+    hash = graphData.hash();
+  } else {
+    hash = graphData;
+  }
   $.jStorage.reInit();
   savedGraphList = $.jStorage.get('savedgraphs') || {};
-  savedGraphList[graphData.hash()] = graphData;
-  return $.jStorage.set('savedgraphs', savedGraphList);
+  delete savedGraphList[hash];
+  $.jStorage.set('savedgraphs', savedGraphList);
+  if (graphData.thumbnail != null) {
+    return graphData.thumbnail.remove();
+  }
+};
+
+FileHandler = {
+  decodeDataURI: function(dataURI) {
+    var content, data, meta;
+    content = dataURI.indexOf(",");
+    meta = dataURI.substr(5, content).toLowerCase();
+    data = decodeURIComponent(dataURI.substr(content + 1));
+    if (/;\s*base64\s*[;,]/.test(meta)) {
+      data = atob(data);
+    }
+    if (/;\s*charset=[uU][tT][fF]-?8\s*[;,]/.test(meta)) {
+      data = decodeURIComponent(escape(data));
+    }
+    return data;
+  },
+  handleFiles: function(files) {
+    var file, reader;
+    file = files[0];
+    reader = new FileReader();
+    reader.onprogress = FileHandler.handleReaderProgress;
+    reader.onloadend = FileHandler.handleReaderLoadEnd;
+    return reader.readAsDataURL(file);
+  },
+  handleReaderProgress: function(evt) {
+    var percentLoaded;
+    if (evt.lengthComputable) {
+      return percentLoaded = evt.loaded / evt.total;
+    }
+  },
+  handleReaderLoadEnd: function(evt) {
+    var data;
+    if (evt.target.error) {
+      throw new Error(evt.target.error + " Error Code: " + evt.target.error.code + " ");
+      return;
+    }
+    data = FileHandler.decodeDataURI(evt.target.result);
+    return setGraphFromSvg(data);
+  },
+  dragEnter: function(evt) {
+    $('#dropbox').show();
+    $('.tabs').hide();
+    evt.stopPropagation();
+    return evt.preventDefault();
+  },
+  dragExit: function(evt) {
+    $('#dropbox').hide();
+    $('#dropbox').removeClass('dropbox-hover');
+    $('.tabs').show();
+    evt.stopPropagation();
+    return evt.preventDefault();
+  },
+  dragOver: function(evt, b) {
+    $('#dropbox').addClass('dropbox-hover');
+    evt.stopPropagation();
+    return evt.preventDefault();
+  },
+  drop: function(evt) {
+    var count, files;
+    evt.stopPropagation();
+    evt.preventDefault();
+    files = evt.dataTransfer.files;
+    count = files.length;
+    if (count > 0) {
+      FileHandler.handleFiles(files);
+    }
+    return FileHandler.dragExit();
+  }
 };
 
 /*
-# deletes a graph from local storage
-#
-# graph should be a GraphData.hash() string or a GraphData object
+# interface utility functions
 */
 
 
-deleteGraph = function(graph) {
-  var savedGraphList;
-  if (graph == null) {
-    graph = this;
-  }
-  if (typeOf(graph) === 'GraphData') {
-    graph = graph.hash();
-  }
-  console.log(graph);
-  $.jStorage.reInit();
-  savedGraphList = $.jStorage.get('savedgraphs') || {};
-  delete savedGraphList[graph];
-  return $.jStorage.set('savedgraphs', savedGraphList);
+round = function(num, places) {
+  var p;
+  p = Math.pow(10, places);
+  return Math.round(num * p) / p;
 };
 
-doGraph = function() {
-  var highlight;
-  unhighlightErrors();
-  try {
-    AsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0]);
-  } catch (err) {
-    if (err.lineNumber != null) {
-      highlight = inputArea.markText({
-        line: err.lineNumber,
-        ch: 0
-      }, {
-        line: err.lineNumber,
-        ch: null
-      }, 'code-error');
-      highlightedErrors.push(highlight);
-      alert("" + err + "\nline number: " + err.lineNumber + "\nline: " + err.sourceLine);
+validateNumber = function(txt, positive, integer, max, min) {
+  var ret;
+  if (positive == null) {
+    positive = true;
+  }
+  if (integer == null) {
+    integer = true;
+  }
+  if (max == null) {
+    max = 10e10;
+  }
+  if (min == null) {
+    min = -10e10;
+  }
+  ret = 0;
+  switch (typeOf(txt)) {
+    case 'number':
+      ret = txt;
+      break;
+    case 'string':
+      ret = parseFloat(txt);
+  }
+  if (isNaN(ret)) {
+    ret = 0;
+  }
+  if (ret > max) {
+    ret = max;
+  } else if (ret < min) {
+    ret = min;
+  }
+  if (positive) {
+    ret = Math.abs(ret);
+  }
+  if (integer) {
+    ret = Math.round(ret);
+  }
+  return ret;
+};
+
+makeEditable = function(element, editFinishedCallback) {
+  var previousValue;
+  if (editFinishedCallback == null) {
+    editFinishedCallback = (function() {
+      return null;
+    });
+  }
+  element = $(element);
+  previousValue = element.html();
+  element.live('focus', function() {
+    var $this;
+    $this = $(this);
+    $this.data('before', $this.html());
+    $this.data('initial-text', $this.html());
+    return $this;
+  });
+  element.live('blur keyup paste', function() {
+    var $this;
+    $this = $(this);
+    if ($this.data('before') !== $this.html()) {
+      $this.data('before', $this.html());
+      $this.trigger('change');
+    }
+    return $this;
+  });
+  element.keydown(function(event) {
+    var $this;
+    $this = $(this);
+    if (event.which === 13) {
+      $(this).blur();
+      event.stopPropagation();
+    }
+    if (event.which === 27) {
+      $this.html($this.data('initial-text'));
+      $this.blur();
+      return event.stopPropagation();
+    }
+  });
+  return element.blur(function(event) {
+    var $this, num, text;
+    $this = $(this);
+    text = $this.text();
+    num = validateNumber(text);
+    if (num === 0) {
+      $this.html($this.data('initial-text'));
     } else {
-      throw err;
+      $this.html('' + num);
     }
-  }
-  return $("#target").append("<asciisvg>" + inputArea.getValue() + "</asciisvg>");
-};
-
-importSVG = function(svgText) {
-  var height, match, previousAsciisvgCommand, svg, viewBox, width;
-  if (typeOf(svgText) === 'GraphData') {
-    svgText = svgText.svgText;
-  }
-  svg = $(svgText);
-  viewBox = svg[0].getAttribute('viewBox');
-  width = svg[0].getAttribute('width');
-  height = svg[0].getAttribute('height');
-  if (viewBox != null) {
-    match = viewBox.match(/\d+ \d+ (\d+) (\d+)/);
-    width = match != null ? match[1] : void 0;
-    height = match != null ? match[2] : void 0;
-  }
-  svg.attr({
-    width: width,
-    height: height,
-    id: 'target'
+    if ($this.html() !== previousValue) {
+      previousValue = $this.html();
+      return editFinishedCallback($this.html());
+    }
   });
-  $("#outputNode").html(svg);
-  previousAsciisvgCommand = $("#outputNode svg asciisvg").text();
-  if (previousAsciisvgCommand) {
-    inputArea.setValue(previousAsciisvgCommand);
-  }
-  $('#svg-stat-width').text(width);
-  $('#svg-stat-height').text(height);
-  return resizeSvg();
 };
-
-genTwoPoints = function() {
-  var m, match, outputEquation, text, x1, x2, y1, y2;
-  text = $("#twopoints").val();
-  match = text.match(/\((.*),(.*)\)\s*;\s*\((.*),(.*)\)/);
-  if (!match) {
-    return;
-  }
-  x1 = void 0;
-  y1 = void 0;
-  x2 = void 0;
-  y2 = void 0;
-  x1 = match[1];
-  y1 = match[2];
-  x2 = match[3];
-  y2 = match[4];
-  m = (y2 - y1) / (x2 - x1);
-  outputEquation = "plot(\"" + m + "*(x-(" + x1 + "))+(" + y1 + ")\")\n";
-  outputEquation += "dot([" + x1 + "," + y1 + "], \"closed\")\n";
-  outputEquation += "dot([" + x2 + "," + y2 + "], \"closed\")\n";
-  return $("#genout").val(outputEquation);
-};
-
-genPointSlope = function() {
-  var m, match, outputEquation, text, x1, y1;
-  text = $("#pointslope").val();
-  match = text.match(/m=(.*)\s*;\s*\((.*),(.*)\)/);
-  if (!match) {
-    return;
-  }
-  m = void 0;
-  x1 = void 0;
-  y1 = void 0;
-  m = match[1];
-  x1 = match[2];
-  y1 = match[3];
-  outputEquation = "plot(\"" + m + "*(x-(" + x1 + "))+(" + y1 + ")\")\n";
-  outputEquation += "dot([" + x1 + "," + y1 + "], \"closed\")\n";
-  return $("#genout").val(outputEquation);
-};
-
-downloadSVG = function() {
-  $("#doGraph").click();
-  saveGraph();
-  return document.location.href = "data:application/octet-stream;base64," + btoa($("#outputNode").html());
-};
-
-/*
-# Drag and drop stuff
-*/
-
-
-decodeDataURI = function(dataURI) {
-  var content, data, meta;
-  content = dataURI.indexOf(",");
-  meta = dataURI.substr(5, content).toLowerCase();
-  data = decodeURIComponent(dataURI.substr(content + 1));
-  if (/;\s*base64\s*[;,]/.test(meta)) {
-    data = atob(data);
-  }
-  if (/;\s*charset=[uU][tT][fF]-?8\s*[;,]/.test(meta)) {
-    data = decodeURIComponent(escape(data));
-  }
-  return data;
-};
-
-dragEnter = function(evt) {
-  evt.stopPropagation();
-  return evt.preventDefault();
-};
-
-dragExit = function(evt) {
-  evt.stopPropagation();
-  return evt.preventDefault();
-};
-
-dragOver = function(evt) {
-  evt.stopPropagation();
-  return evt.preventDefault();
-};
-
-drop = function(evt) {
-  var count, files;
-  evt.stopPropagation();
-  evt.preventDefault();
-  files = evt.dataTransfer.files;
-  count = files.length;
-  if (count > 0) {
-    return handleFiles(files);
-  }
-};
-
-openFile = function(evt) {
-  var files;
-  files = evt.target.files;
-  if (files.length > 0) {
-    return handleFiles(files);
-  }
-};
-
-handleFiles = function(files) {
-  var file, reader;
-  file = files[0];
-  document.getElementById("droplabel").innerHTML = "Processing " + file.name;
-  reader = new FileReader();
-  reader.onprogress = handleReaderProgress;
-  reader.onloadend = handleReaderLoadEnd;
-  return reader.readAsDataURL(file);
-};
-
-handleReaderProgress = function(evt) {
-  var loaded;
-  if (evt.lengthComputable) {
-    return loaded = evt.loaded / evt.total;
-  }
-};
-
-handleReaderLoadEnd = function(evt) {
-  var data;
-  if (evt.target.error) {
-    $("#errorCode").html(evt.target.error + " Error Code: " + evt.target.error.code + " ");
-    $("#errorDialog").dialog("open");
-    return;
-  }
-  data = decodeDataURI(evt.target.result);
-  return importSVG(data);
-};
-
-GraphData = (function() {
-
-  GraphData.name = 'GraphData';
-
-  function GraphData(svgText, javascriptText, name) {
-    this.svgText = svgText;
-    this.javascriptText = javascriptText != null ? javascriptText : '';
-    this.name = name != null ? name : null;
-    this.createThumbnail = __bind(this.createThumbnail, this);
-
-    this.creationDate = new Date();
-  }
-
-  GraphData.prototype.createThumbnail = function(callback) {
-    var _this = this;
-    this.thumbnail = $('<li class="button thumbnail">\n   <div class="thumbnail-svg"></div>\n   <div class="thumbnail-caption"></div>\n</li>');
-    this.thumbnail.click(function() {
-      return callback(_this);
-    });
-    this.thumbnail.find('.thumbnail-svg').html(this.svgText);
-    this.thumbnail.find('.thumbnail-caption').html(this.creationDate.toLocaleDateString());
-    this.thumbnail.button();
-    return this.thumbnail;
-  };
-
-  GraphData.prototype.makeDeletableFromLocalStorage = function() {
-    var _this = this;
-    this.deleteButton = $('<div class="thumbnail-delete-button">X</div>');
-    this.deleteButton.click(function() {
-      deleteGraph(_this);
-      return _this.thumbnail.remove();
-    });
-    return this.thumbnail.prepend(this.deleteButton);
-  };
-
-  GraphData.prototype.toString = function() {
-    var ret;
-    ret = {
-      svgText: this.svgText,
-      javascriptText: this.javascriptText,
-      name: this.name,
-      creationDate: this.creationDate.toJSON()
-    };
-    return $.toJSON(ret);
-  };
-
-  GraphData.prototype.hash = function() {
-    return hex_md5(this.toString());
-  };
-
-  GraphData.fromJSON = function(obj) {
-    var ret;
-    if (typeOf(obj) === 'string') {
-      obj = $.fromJSON(obj);
-    }
-    ret = new GraphData;
-    if (obj.svgText != null) {
-      ret.svgText = obj.svgText;
-    }
-    if (obj.javascriptText != null) {
-      ret.javascriptText = obj.javascriptText;
-    }
-    if (obj.name != null) {
-      ret.name = obj.name;
-    }
-    if (obj.creationDate != null) {
-      ret.creationDate = new Date(obj.creationDate);
-    }
-    return ret;
-  };
-
-  return GraphData;
-
-})();

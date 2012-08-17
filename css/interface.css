@@ -1,136 +1,54 @@
-#graphSettings {
-	float: left;
-	width: 50%;
-	height: 100%;
+.left {
+    width: 50%;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    float: left;
 }
-#preview {
-	float: right;
-	width: 50%;
-	overflow: auto;
-	/*height: 90%;*/
-}
-#canvas {
-	width: 1100px;
-	height: 850px;
+.right {
+    width: 50%;
+    float: right;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
 }
 
-#container {
-	height: 90%;
-	/* overflow: hidden; */
+.svg-area {
+    overflow: auto;
 }
-
-#table-importSettings {
-	border-width: 1px;
-	cellpadding: 0px;
-	cellspacing: 0px;
-	border-spacing: 0;
-}
-#table-importSettings td.rowData {
-	border-bottom: 1px solid #ddd;
-	padding: 2px;
-	margin: 0px;
-}
-#table-importSettings tr:first-child td.rowData {
-	border-top: 1px solid #ddd;
-}
-
-.inactiveRow {
-	color: #BBBBBB;
-}
-
-.emph {
-	font-style: italic;
-}
-
-.tablink {
-	font-weight: bold;
-	color: blue;
-}
-
-.float-left {
-	float: left;
-	width: 40%;
-	clear: none;
-}
-.float-right {
-	float: right;
-	width: 50%;
-	clear: none;
-}
-
-.clearfix:after {
-     visibility: hidden;
-     display: block;
-     font-size: 0;
-     content: " ";
-     clear: both;
-     height: 0;
-     }
-.clearfix { display: inline-block; }
-/* start commented backslash hack \*/
-* html .clearfix { height: 1%; }
-.clearfix { display: block; }
-/* close commented backslash hack */
-
-textarea {
-	font-family: monospace !important;
-}
-
-
 .svg-stats {
-	font-size: .8em;
-	color: #777;
+    color: #777777;
+    font-size: 0.8em;
 }
 .svg-stats .item {
-	margin-right: 1em;
+    margin-right: 1em;
 }
 .svg-stat {
-	font-family: monospace;
-	color: #00a;
+    color: #0000AA;
+    font-family: monospace;
 }
 
-#thumbnails {
-	border: 1px solid black;
-	padding: 1em;
-}
-.thumbnail {
-	display: inline-block;
-	border: 1px solid black;
-}
-.thumbnail-svg {
+[contenteditable='true']:hover {
+	outline: 1px dashed black;
 	background: white;
-	margin: 0px auto;
-}
-.thumbnail-caption {
-	width: 100%;
-	text-align: center;
-}
-/* make the thumbnail delete button only show on hover */
-.thumbnail-delete-button {
-	padding-right: .5em;
-	padding-top: .2em;
-	float: right;
-	color: red;
-	/* visibility: hidden; */
-	opacity: 0;
-	transition-property: opacity;
-	transition-duration: 0.5s;
-	-moz-transition-property: opacity;
-	-moz-transition-duration: 0.5s;
-	-webkit-transition-property: opacity;
-	-webkit-transition-duration: 0.5s;
-}
-.thumbnail:hover .thumbnail-delete-button {
-	/* visibility: visible; */
-	opacity: 1;
-	transition-property: opacity;
-	transition-duration: 0.3s;
-	-moz-transition-property: opacity;
-	-moz-transition-duration: 0.3s;
-	-webkit-transition-property: opacity;
-	-webkit-transition-duration: 0.3s;
 }
 
-.code-error {
-	background-color: #f99;
+
+/*
+ * Drag and drop stuff
+ */
+
+#dropbox {
+	width: 500px;
+	height: 300px;
+	margin: 50px;
+	padding: 70px;
+	border: 1px sold;
+	text-align: center;
+	font-size: 2em;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
 }
+
+.dropbox-hover, #dropbox:hover {
+        box-shadow: 0px 0px 4px #2E6E9E;
+}
+
