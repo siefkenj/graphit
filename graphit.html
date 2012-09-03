@@ -154,6 +154,58 @@ stroke = "red"
 			</div>
 		</div>
 		<div id='help'>
+		<h2>Overview</h2>
+		<p>
+		Graphit allows you to create and save mathematical plots directly from
+		your browser.  A graph is defied by javascript code and then converted
+		to <a href='http://en.wikipedia.org/wiki/Svg'>SVG</a> with a
+		modified version of the <a href='http://www1.chapman.edu/~jipsen/svg/asciisvg.html'>ASCIIsvg</a>
+		library.
+		</p>
+		<p>
+		To create a graph, go to the <a href='#graph'>Graph</a> tab and enter
+		your graph commands into the text box.  Every graph should start with
+		<code>initPicture(min_x,max_x,min_y,max_y)</code>.  Axes can be added with
+		the <code>axes</code> command and plots can be added with <code>plot</code>.
+		See the <a href='#examples'>Examples</a> tab for examples on how to use these
+		commands.
+		</p>
+		<p>
+		When you've modified the code for a graph, click <emph>Update Graph</emph>
+		to update the preview of your graph, and when you are satisfied with your
+		graph, click <emph>Save Graph</emph> to save an SVG copy to you computer.
+		Depending on your browser settings, you may be prompted to give a 
+		filename for the graph or it may be automatically assigned a name and
+		saved to your downloads folder.  <emph>You may have to change the filename
+		to end in <code>.svg</code> if it does not end in <code>.svg</code>
+		already.</emph>
+		This SVG copy can then be converted into a pdf or image file using a 
+		tool like <a href='http://inkscape.org/'>Inkscape</a> for inclusion into
+		a LaTeX document, or it can be directly embedded into a web page as an SVG.
+		</p>
+		<p>
+		If you later decided you want to edit an svg created with
+		graphit that you have saved to your computer,
+		you can click <emph>Load Graph</emph> in the <a href='#graph'>Graph</a> tab
+		or drag and drop the file into your web browser.
+		</p>
+		<h2>Technical Notes</h2>
+		<p>
+		The code used to make a graph with graphit is actually real (slightly-preparsed)
+		javascript code.  That means any javascript constructs (for example,
+		multiple commands on a single line with <code>;</code>) are usable with
+		graphit.  All graphing parameters (like <code>fontsize</code>, etc.)
+		are javascript variables and graphing commands are javascript functions
+		(e.g. <code>initPicture(-4.3,4.3,-3.3,3.3)</code>) which use any pertinent
+		global variables to issue the appropriate SVG drawing operation.
+		</p>
+		<p>
+		Using global variables like this gives the appearance of a stack-based
+		graphing language.  Since commands reference global variables, one must
+		take care not to use the <code>var</code> keyword to define a graphing
+		parameter, since it would then be a local variable and have no affect
+		on graphing commands.
+		</p>
 		</div>
 	</div>
 

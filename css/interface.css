@@ -31,6 +31,10 @@
 	background: white;
 }
 
+emph {
+    font-style: italic;
+}
+
 
 /*
  * Drag and drop stuff
