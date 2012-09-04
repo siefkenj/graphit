@@ -61,6 +61,7 @@ $(document).ready ->
     # initialize everything
     resizeGraph()
     initializeGraphHistory()
+    loadExamples()
 
 
 ###
@@ -111,6 +112,8 @@ saveGraph = ->
     savedGraphList = $.jStorage.get('savedgraphs') or {}
     savedGraphList[graphData.hash()] = graphData.toJSON()
     $.jStorage.set('savedgraphs', savedGraphList)
+    # XXX: this is for debugging/grabbing json text to use in the example file
+    window.lastSavedGraph = graphData.toJSON()
 
     #
     # Prompt to save to the harddrive
@@ -274,6 +277,29 @@ FileHandler =
         FileHandler.handleFiles files if count > 0
         # fake the exit of a drag event...
         FileHandler.dragExit()
+
+#
+# Load all examples from examples/examples.json and
+# put them in the Examples tab
+#
+loadExamples = (url='examples/examples.json') ->
+    $.ajax
+        url: url
+        dataType: 'text'
+        success: displayExamples
+
+displayExamples = (examplesJSON) ->
+    exampleList = $.parseJSON(examplesJSON)
+    for graphJSON in exampleList
+        graph = GraphData.fromJSON(graphJSON)
+        graph.onclick = (data) ->
+            # switch to the Graph tab and then load the graph
+            $('.tabs').tabs('select', '#graph')
+            loadGraphFromGraphData(data)
+        thumbnail = graph.createThumbnail()
+        $('#examples .gallery-container').append(thumbnail)
+        
+
 
 
 ###

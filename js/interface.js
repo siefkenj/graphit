@@ -4,7 +4,7 @@
 # that are instances of those types.
 */
 
-var FileHandler, deleteGraphFromGraphData, historyClearAll, historyLoadFromFile, initializeGraphHistory, loadGraph, loadGraphFromGraphData, makeEditable, resizeGraph, round, saveGraph, setGraphFromSvg, typeOf, updateGraph, validateNumber;
+var FileHandler, deleteGraphFromGraphData, displayExamples, historyClearAll, historyLoadFromFile, initializeGraphHistory, loadExamples, loadGraph, loadGraphFromGraphData, makeEditable, resizeGraph, round, saveGraph, setGraphFromSvg, typeOf, updateGraph, validateNumber;
 
 typeOf = function(obj) {
   var constructor, constructorName, guess, objectTypes, type;
@@ -61,7 +61,8 @@ $(document).ready(function() {
   $('#dropbox')[0].addEventListener('dragover', FileHandler.dragOver, false);
   $('body')[0].addEventListener('drop', FileHandler.drop, false);
   resizeGraph();
-  return initializeGraphHistory();
+  initializeGraphHistory();
+  return loadExamples();
 });
 
 /*
@@ -103,6 +104,7 @@ saveGraph = function() {
   savedGraphList = $.jStorage.get('savedgraphs') || {};
   savedGraphList[graphData.hash()] = graphData.toJSON();
   $.jStorage.set('savedgraphs', savedGraphList);
+  window.lastSavedGraph = graphData.toJSON();
   return document.location.href = "data:application/octet-stream;base64," + btoa(svgText);
 };
 
@@ -286,6 +288,34 @@ FileHandler = {
     }
     return FileHandler.dragExit();
   }
+};
+
+loadExamples = function(url) {
+  if (url == null) {
+    url = 'examples/examples.json';
+  }
+  return $.ajax({
+    url: url,
+    dataType: 'text',
+    success: displayExamples
+  });
+};
+
+displayExamples = function(examplesJSON) {
+  var exampleList, graph, graphJSON, thumbnail, _i, _len, _results;
+  exampleList = $.parseJSON(examplesJSON);
+  _results = [];
+  for (_i = 0, _len = exampleList.length; _i < _len; _i++) {
+    graphJSON = exampleList[_i];
+    graph = GraphData.fromJSON(graphJSON);
+    graph.onclick = function(data) {
+      $('.tabs').tabs('select', '#graph');
+      return loadGraphFromGraphData(data);
+    };
+    thumbnail = graph.createThumbnail();
+    _results.push($('#examples .gallery-container').append(thumbnail));
+  }
+  return _results;
 };
 
 /*
