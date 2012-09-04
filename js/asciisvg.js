@@ -164,41 +164,6 @@ function myCreateElementXHTML(t) {
     else return document.createElementNS("http://www.w3.org/1999/xhtml", t);
 }
 
-function isSVGavailable() {
-    var ua = navigator.userAgent;
-    if (ua.match("AppleWebKit")) {
-        return null;
-    }
-    if (navigator.appName.slice(0, 5) == "Opera") {
-        return null;
-    }
-    var nd = myCreateElementXHTML("center");
-    nd.appendChild(document.createTextNode("To view the "));
-    var an = myCreateElementXHTML("a");
-    an.appendChild(document.createTextNode("ASCIIsvg"));
-    an.setAttribute("href", "http://www.chapman.edu/~jipsen/asciisvg.html");
-    nd.appendChild(an);
-    nd.appendChild(document.createTextNode(" images use Internet Explorer 6+"));
-    an = myCreateElementXHTML("a");
-    an.appendChild(document.createTextNode("Adobe SVGviewer 3.02"));
-    an.setAttribute("href", "http://www.adobe.com/svg");
-    nd.appendChild(an);
-    nd.appendChild(document.createTextNode(" or "));
-    an = myCreateElementXHTML("a");
-    an.appendChild(document.createTextNode("SVG enabled Mozilla/Firefox"));
-    an.setAttribute("href", "http://www.chapman.edu/~jipsen/svg/svgenabledmozillafirefox.html");
-    nd.appendChild(an);
-    if (navigator.appName.slice(0, 8) == "Netscape") if (window['SVGElement']) return null;
-    else return nd;
-    else if (navigator.appName.slice(0, 9) == "Microsoft") try {
-        var oSVG = eval("new ActiveXObject('Adobe.SVGCtl.3');");
-        return null;
-    } catch (e) {
-        return nd;
-    } else return nd;
-}
-
-
 function less(x, y) {
     return x < y
 } // used for scripts in XML files
@@ -243,6 +208,59 @@ function right_listener(evt) {
     svgpicture.setAttribute("xbase", evt.clientX - width + 1);
 }
 
+// Evaluates a paragraph of javascript code, emitting an error on
+// error with the linenumber of the associated error
+function evalMath(src) {
+    try {
+        with(Math) {
+            eval(src);
+        }
+    } catch (err) {
+        throw err;
+    }
+    /*
+    var lines = src.split('\n');
+    var currentLineNumber = 0;
+    var evalLineSize = 1;
+    var currentError = null;
+    while (lines.length > 0) {
+        var evalLine = lines.unshift();
+        try {
+            with(Math) {
+                eval(evalLine);
+                // If we made it this far, the line evaluated properly
+                currentLineNumber += evalLineSize;
+                evalLineSize = 1;
+                currentError = null;
+                evalLine = null;
+            }
+        } catch (err) {
+            // If we encountered a syntax error, add another line to the source code,
+            // 'cause it might be a multi-line
+            currentError = {lineNumber: currentLineNumber, sourceLine: evalLine};
+            evalLine += lines.unshift();
+            evalLineSize += 1;
+        }
+    }
+    // If we made it this far and evalLine is set, we might not have tried executing it yet.
+    if (evalLine) {
+        try {
+            with(Math) {
+                eval(evalLine);
+                currentError = null;
+                evalLine = null;
+            }
+        } catch (err) {
+            currentError = {lineNumber: currentLineNumber, sourceLine: evalLine};
+        }
+    }
+
+    if (currentError) {
+        throw currentError;
+    }
+    */
+}
+
 function drawPictures() { // main routine; called after webpage has loaded
     var src, id, dsvg, onmov, nd, node, ht, index;
     var pictures = document.getElementsByTagName("textarea");
@@ -252,16 +270,6 @@ function drawPictures() { // main routine; called after webpage has loaded
     }
     pictures = document.getElementsByTagName("embed");
     var len = pictures.length;
-    if (checkIfSVGavailable) {
-        nd = isSVGavailable();
-        if (nd != null && notifyIfNoSVG && len > 0) if (alertIfNoSVG) alert("To view the SVG pictures in Internet Explorer\n\
-download the free Adobe SVGviewer from www.adobe.com/svg or\n\
-use Firefox 1.5 preview (called Deerpark)");
-        else {
-            var ASbody = document.getElementsByTagName("body")[0];
-            ASbody.insertBefore(nd, ASbody.childNodes[0]);
-        }
-    }
     if (nd == null) {
         for (index = 0; index < len; index++) {
             xmin = null;
@@ -329,20 +337,7 @@ use Firefox 1.5 preview (called Deerpark)");
             
             /* evaluate the math. If there is an error, rethrow it
              * with the line number */
-            with(Math) {
-                lines = src.split('\n');
-                for (var i = 0; i < lines.length; i++) {
-                    try {
-                        currentLineNumber = i;
-                        eval(lines[i]);
-                    } catch (err) {
-                        err.lineNumber = i;
-                        err.sourceLine = lines[i];
-                        err.source = src;
-                        throw err;
-                    }
-                }
-            }
+            evalMath(src);
             if (isIE) src = src.replace(/([^\r])\n/g, "$1\r");
             setText("<embed width=\"" + width + "\" height=\"" + height + "\" src=\"" + dsvg + "\" "  + "script=\'" + src + "\'>", id + "script");
             //    setText(src.replace(/\s\s/g,"\r"),id+"script"); //for XML version
@@ -403,20 +398,7 @@ function updatePicture(src, target) {
 
     /* evaluate the math. If there is an error, rethrow it
      * with the line number */
-    with(Math) {
-        lines = src.split('\n');
-        for (var i = 0; i < lines.length; i++) {
-            try {
-                currentLineNumber = i;
-                eval(lines[i]);
-            } catch (err) {
-                err.lineNumber = i;
-                err.sourceLine = lines[i];
-                err.source = src;
-                throw err;
-            }
-        }
-    }
+    evalMath(src);
 }
 
 function showHideCode(obj) {
