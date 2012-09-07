@@ -4,7 +4,8 @@
 # that are instances of those types.
 */
 
-var FileHandler, deleteGraphFromGraphData, displayExamples, historyClearAll, historyLoadFromFile, initializeGraphHistory, loadExamples, loadGraph, loadGraphFromGraphData, makeEditable, resizeGraph, round, saveGraph, setGraphFromSvg, typeOf, updateGraph, validateNumber;
+var DownloadManager, FileHandler, deleteGraphFromGraphData, displayExamples, historyClearAll, historyLoadFromFile, initializeGraphHistory, loadExamples, loadGraph, loadGraphFromGraphData, makeEditable, resizeGraph, round, saveGraph, setGraphFromSvg, typeOf, updateGraph, validateNumber,
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 typeOf = function(obj) {
   var constructor, constructorName, guess, objectTypes, type;
@@ -84,12 +85,173 @@ updateGraph = function() {
 };
 
 /*
+# Various methods of downloading data to the users compuer so they can save it.
+# Initially DownloadManager.download will try to bounce off download.php,
+# a server-side script that sends the data it receives back with approprate
+# headers.  If this fails, it will try to use the blob API to and the
+# 'download' attribute of an anchor to download the file with a suggested file name.
+# If this fails, a dataURI is used.
+*/
+
+
+DownloadManager = (function() {
+
+  DownloadManager.name = 'DownloadManager';
+
+  DownloadManager.prototype.DOWNLOAD_SCRIPT = 'download.php';
+
+  function DownloadManager(filename, data, mimetype) {
+    this.filename = filename;
+    this.data = data;
+    this.mimetype = mimetype != null ? mimetype : 'application/octet-stream';
+    this.downloadDataUriBased = __bind(this.downloadDataUriBased, this);
+
+    this.downloadBlobBased = __bind(this.downloadBlobBased, this);
+
+    this.downloadServerBased = __bind(this.downloadServerBased, this);
+
+    this.testDataUriAvailability = __bind(this.testDataUriAvailability, this);
+
+    this.testBlobAvailability = __bind(this.testBlobAvailability, this);
+
+    this.testServerAvailability = __bind(this.testServerAvailability, this);
+
+    this.download = __bind(this.download, this);
+
+    this.downloadMethodAvailable = {
+      serverBased: null,
+      blobBased: null,
+      dataUriBased: null
+    };
+  }
+
+  DownloadManager.prototype.download = function() {
+    if (this.downloadMethodAvailable.serverBased === null) {
+      this.testServerAvailability(this.download);
+      return;
+    }
+    if (this.downloadMethodAvailable.serverBased === true) {
+      this.downloadServerBased();
+      return;
+    }
+    if (this.downloadMethodAvailable.blobBased === null) {
+      this.testBlobAvailability(this.download);
+      return;
+    }
+    if (this.downloadMethodAvailable.blobBased === true) {
+      this.downloadBlobBased();
+      return;
+    }
+    if (this.downloadMethodAvailable.dataUriBased === null) {
+      this.testDataUriAvailability(this.download);
+      return;
+    }
+    if (this.downloadMethodAvailable.dataUriBased === true) {
+      this.downloadDataUriBased();
+    }
+  };
+
+  DownloadManager.prototype.testServerAvailability = function(callback) {
+    var _this = this;
+    if (callback == null) {
+      callback = function() {};
+    }
+    return $.ajax({
+      url: this.DOWNLOAD_SCRIPT,
+      dataType: 'text',
+      success: function(data, status, response) {
+        if (response.getResponseHeader('Content-Description') === 'File Transfer') {
+          _this.downloadMethodAvailable.serverBased = true;
+        } else {
+          _this.downloadMethodAvailable.serverBased = false;
+        }
+        return callback.call(_this);
+      },
+      error: function(data, status, response) {
+        _this.downloadMethodAvailable.serverBased = false;
+        return callback.call(_this);
+      }
+    });
+  };
+
+  DownloadManager.prototype.testBlobAvailability = function(callback) {
+    if (callback == null) {
+      callback = function() {};
+    }
+    if ((window.webkitURL || window.URL) && (window.Blob || window.MozBlobBuilder || window.WebKitBlobBuilder)) {
+      this.downloadMethodAvailable.blobBased = true;
+    } else {
+      this.downloadMethodAvailable.blobBased = true;
+    }
+    return callback.call(this);
+  };
+
+  DownloadManager.prototype.testDataUriAvailability = function(callback) {
+    if (callback == null) {
+      callback = function() {};
+    }
+    this.downloadMethodAvailable.dataUriBased = true;
+    return callback.call(this);
+  };
+
+  DownloadManager.prototype.downloadServerBased = function(errorCallback) {
+    var form, input1, input2, input3;
+    if (errorCallback == null) {
+      errorCallback = this.download;
+    }
+    input1 = $('<input type="hidden"></input>').attr({
+      name: 'filename',
+      value: this.filename
+    });
+    input2 = $('<input type="hidden"></input>').attr({
+      name: 'data',
+      value: this.data
+    });
+    input3 = $('<input type="hidden"></input>').attr({
+      name: 'mimetype',
+      value: this.mimetype
+    });
+    form = $('<form action="' + this.DOWNLOAD_SCRIPT + '" method="post" target="downloads_iframe"></form>');
+    form.append(input1).append(input2).append(input3);
+    return form.appendTo(document.body).submit().remove();
+  };
+
+  DownloadManager.prototype.downloadBlobBased = function() {
+    var bb, blob, downloadLink, url;
+    try {
+      blob = new Blob([this.data], {
+        type: 'application/octet-stream'
+      });
+    } catch (e) {
+      bb = new (window.WebKitBlobBuilder || window.MozBlobBuilder);
+      bb.append(this.data);
+      blob = bb.getBlob('application/octet-stream');
+    }
+    url = (window.webkitURL || window.URL).createObjectURL(blob);
+    downloadLink = $('<a></a>').attr({
+      href: url,
+      download: this.filename
+    });
+    $(document.body).append(downloadLink);
+    downloadLink[0].click();
+    return downloadLink.remove();
+  };
+
+  DownloadManager.prototype.downloadDataUriBased = function() {
+    return document.location.href = "data:application/octet-stream;base64," + btoa(this.data);
+  };
+
+  return DownloadManager;
+
+})();
+
+/*
 # Saves the graph currently in the preview area
 */
 
 
 saveGraph = function() {
-  var cloned, graphData, htmlifiedSvg, savedGraphList, svgText, thumbnail;
+  var cloned, downloadManager, graphData, htmlifiedSvg, savedGraphList, svgText, thumbnail;
   updateGraph();
   cloned = $('#target').clone();
   htmlifiedSvg = $('<div></div>').append(cloned);
@@ -105,7 +267,8 @@ saveGraph = function() {
   savedGraphList[graphData.hash()] = graphData.toJSON();
   $.jStorage.set('savedgraphs', savedGraphList);
   window.lastSavedGraph = graphData.toJSON();
-  return document.location.href = "data:application/octet-stream;base64," + btoa(svgText);
+  downloadManager = new DownloadManager('graph.svg', svgText, 'image/svg+xml');
+  return downloadManager.download();
 };
 
 loadGraph = function() {

@@ -83,6 +83,111 @@ updateGraph = ->
     $("#target").append("<asciisvg>" + inputArea.getValue() + "</asciisvg>")
 
 ###
+# Various methods of downloading data to the users compuer so they can save it.
+# Initially DownloadManager.download will try to bounce off download.php,
+# a server-side script that sends the data it receives back with approprate
+# headers.  If this fails, it will try to use the blob API to and the
+# 'download' attribute of an anchor to download the file with a suggested file name.
+# If this fails, a dataURI is used.
+###
+class DownloadManager
+    DOWNLOAD_SCRIPT: 'download.php'
+    constructor: (@filename, @data, @mimetype='application/octet-stream') ->
+    # a null status means no checks have been performed on whether that method will work
+        @downloadMethodAvailable =
+            serverBased: null
+            blobBased: null
+            dataUriBased: null
+
+    # run through each download method and if it works,
+    # use that method to download the graph.  @downloadMethodAvailable
+    # starts as all null and will be set to true or false after a test has been run
+    download: () =>
+        if @downloadMethodAvailable.serverBased == null
+            @testServerAvailability(@download)
+            return
+        if @downloadMethodAvailable.serverBased == true
+            @downloadServerBased()
+            return
+
+        if @downloadMethodAvailable.blobBased == null
+            @testBlobAvailability(@download)
+            return
+        if @downloadMethodAvailable.blobBased == true
+            @downloadBlobBased()
+            return
+
+        if @downloadMethodAvailable.dataUriBased == null
+            @testDataUriAvailability(@download)
+            return
+        if @downloadMethodAvailable.dataUriBased == true
+            @downloadDataUriBased()
+            return
+
+    testServerAvailability: (callback = ->) =>
+        $.ajax
+            url: @DOWNLOAD_SCRIPT
+            dataType: 'text'
+            success: (data, status, response) =>
+                if response.getResponseHeader('Content-Description') is 'File Transfer'
+                    @downloadMethodAvailable.serverBased = true
+                else
+                    @downloadMethodAvailable.serverBased = false
+                callback.call(this)
+            error: (data, status, response) =>
+                @downloadMethodAvailable.serverBased = false
+                callback.call(this)
+
+    testBlobAvailability: (callback = ->) =>
+        if (window.webkitURL or window.URL) and (window.Blob or window.MozBlobBuilder or window.WebKitBlobBuilder)
+            @downloadMethodAvailable.blobBased = true
+        else
+            @downloadMethodAvailable.blobBased = true
+        callback.call(this)
+
+    testDataUriAvailability: (callback = ->) =>
+        # not sure how to check for this ...
+        @downloadMethodAvailable.dataUriBased = true
+        callback.call(this)
+
+    downloadServerBased: (errorCallback=@download) =>
+        input1 = $('<input type="hidden"></input>').attr({name: 'filename', value: @filename})
+        input2 = $('<input type="hidden"></input>').attr({name: 'data', value: @data})
+        input3 = $('<input type="hidden"></input>').attr({name: 'mimetype', value: @mimetype})
+        # target=... is set to our hidden iframe so we don't change the url of our main page
+        form = $('<form action="'+@DOWNLOAD_SCRIPT+'" method="post" target="downloads_iframe"></form>')
+        form.append(input1).append(input2).append(input3)
+
+        # submit the form and hope for the best!
+        form.appendTo(document.body).submit().remove()
+
+    downloadBlobBased: () =>
+        try
+            # This is the recommended method:
+            blob = new Blob([@data], {type: 'application/octet-stream'})
+        catch e
+            # The BlobBuilder API has been deprecated in favour of Blob, but older
+            # browsers don't know about the Blob constructor
+            # IE10 also supports BlobBuilder, but since the `Blob` constructor
+            # also works, there's no need to add `MSBlobBuilder`.
+            bb = new (window.WebKitBlobBuilder || window.MozBlobBuilder)
+            bb.append(@data)
+            blob = bb.getBlob('application/octet-stream')
+
+        url = (window.webkitURL || window.URL).createObjectURL(blob)
+
+        downloadLink = $('<a></a>').attr({href: url, download: @filename})
+        $(document.body).append(downloadLink)
+        # trigger the file save dialog
+        downloadLink[0].click()
+        # clean up when we're done
+        downloadLink.remove()
+
+    downloadDataUriBased: () =>
+        document.location.href = "data:application/octet-stream;base64," + btoa(@data)
+
+
+###
 # Saves the graph currently in the preview area
 ###
 saveGraph = ->
@@ -118,8 +223,8 @@ saveGraph = ->
     #
     # Prompt to save to the harddrive
     #
-
-    document.location.href = "data:application/octet-stream;base64," + btoa(svgText)
+    downloadManager = new DownloadManager('graph.svg', svgText, 'image/svg+xml')
+    downloadManager.download()
 
 # TODO: fix so it works in chromium/chrome...Right now we use an
 # ugly hack since we cannot trigger a click event on <input type=file
