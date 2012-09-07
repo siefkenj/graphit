@@ -150,7 +150,7 @@ class DownloadManager
         @downloadMethodAvailable.dataUriBased = true
         callback.call(this)
 
-    downloadServerBased: (errorCallback=@download) =>
+    downloadServerBased: () =>
         input1 = $('<input type="hidden"></input>').attr({name: 'filename', value: @filename})
         input2 = $('<input type="hidden"></input>').attr({name: 'data', value: @data})
         input3 = $('<input type="hidden"></input>').attr({name: 'mimetype', value: @mimetype})
@@ -161,29 +161,34 @@ class DownloadManager
         # submit the form and hope for the best!
         form.appendTo(document.body).submit().remove()
 
-    downloadBlobBased: () =>
+    downloadBlobBased: (errorCallback=@download) =>
         try
-            # This is the recommended method:
-            blob = new Blob([@data], {type: 'application/octet-stream'})
+            try
+                # This is the recommended method:
+                blob = new Blob([@data], {type: 'application/octet-stream'})
+            catch e
+                # The BlobBuilder API has been deprecated in favour of Blob, but older
+                # browsers don't know about the Blob constructor
+                # IE10 also supports BlobBuilder, but since the `Blob` constructor
+                # also works, there's no need to add `MSBlobBuilder`.
+                bb = new (window.WebKitBlobBuilder || window.MozBlobBuilder)
+                bb.append(@data)
+                blob = bb.getBlob('application/octet-stream')
+
+            url = (window.webkitURL || window.URL).createObjectURL(blob)
+
+            downloadLink = $('<a></a>').attr({href: url, download: @filename})
+            $(document.body).append(downloadLink)
+            # trigger the file save dialog
+            downloadLink[0].click()
+            # clean up when we're done
+            downloadLink.remove()
         catch e
-            # The BlobBuilder API has been deprecated in favour of Blob, but older
-            # browsers don't know about the Blob constructor
-            # IE10 also supports BlobBuilder, but since the `Blob` constructor
-            # also works, there's no need to add `MSBlobBuilder`.
-            bb = new (window.WebKitBlobBuilder || window.MozBlobBuilder)
-            bb.append(@data)
-            blob = bb.getBlob('application/octet-stream')
-
-        url = (window.webkitURL || window.URL).createObjectURL(blob)
-
-        downloadLink = $('<a></a>').attr({href: url, download: @filename})
-        $(document.body).append(downloadLink)
-        # trigger the file save dialog
-        downloadLink[0].click()
-        # clean up when we're done
-        downloadLink.remove()
+            @downloadMethodAvailable.blobBased = false
+            errorCallback.call(this)
 
     downloadDataUriBased: () =>
+        console.log 'daturi'
         document.location.href = "data:application/octet-stream;base64," + btoa(@data)
 
 

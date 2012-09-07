@@ -194,11 +194,8 @@ DownloadManager = (function() {
     return callback.call(this);
   };
 
-  DownloadManager.prototype.downloadServerBased = function(errorCallback) {
+  DownloadManager.prototype.downloadServerBased = function() {
     var form, input1, input2, input3;
-    if (errorCallback == null) {
-      errorCallback = this.download;
-    }
     input1 = $('<input type="hidden"></input>').attr({
       name: 'filename',
       value: this.filename
@@ -216,28 +213,37 @@ DownloadManager = (function() {
     return form.appendTo(document.body).submit().remove();
   };
 
-  DownloadManager.prototype.downloadBlobBased = function() {
+  DownloadManager.prototype.downloadBlobBased = function(errorCallback) {
     var bb, blob, downloadLink, url;
-    try {
-      blob = new Blob([this.data], {
-        type: 'application/octet-stream'
-      });
-    } catch (e) {
-      bb = new (window.WebKitBlobBuilder || window.MozBlobBuilder);
-      bb.append(this.data);
-      blob = bb.getBlob('application/octet-stream');
+    if (errorCallback == null) {
+      errorCallback = this.download;
     }
-    url = (window.webkitURL || window.URL).createObjectURL(blob);
-    downloadLink = $('<a></a>').attr({
-      href: url,
-      download: this.filename
-    });
-    $(document.body).append(downloadLink);
-    downloadLink[0].click();
-    return downloadLink.remove();
+    try {
+      try {
+        blob = new Blob([this.data], {
+          type: 'application/octet-stream'
+        });
+      } catch (e) {
+        bb = new (window.WebKitBlobBuilder || window.MozBlobBuilder);
+        bb.append(this.data);
+        blob = bb.getBlob('application/octet-stream');
+      }
+      url = (window.webkitURL || window.URL).createObjectURL(blob);
+      downloadLink = $('<a></a>').attr({
+        href: url,
+        download: this.filename
+      });
+      $(document.body).append(downloadLink);
+      downloadLink[0].click();
+      return downloadLink.remove();
+    } catch (e) {
+      this.downloadMethodAvailable.blobBased = false;
+      return errorCallback.call(this);
+    }
   };
 
   DownloadManager.prototype.downloadDataUriBased = function() {
+    console.log('daturi');
     return document.location.href = "data:application/octet-stream;base64," + btoa(this.data);
   };
 
