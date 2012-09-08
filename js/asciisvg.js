@@ -478,7 +478,6 @@ function initPicture(x_min, x_max, y_min, y_max) {
             } else {
                 var qnode = document.createElementNS("http://www.w3.org/2000/svg", "svg");
                 qnode.setAttribute("id", picture.getAttribute("id"));
-                qnode.setAttribute("style", "display:inline");
                 qnode.setAttribute("width", picture.getAttribute("width"));
                 qnode.setAttribute("height", picture.getAttribute("height"));
                 if (picture.parentNode != null) picture.parentNode.replaceChild(qnode, picture);

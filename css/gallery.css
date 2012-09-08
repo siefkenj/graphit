@@ -35,7 +35,7 @@
 .gallery-thumbnail {
 	width: 12em;
 	height: 12em;
-	background: pink;
+	background: lightGrey;
 	float: left;
 	position: absolute;
 }

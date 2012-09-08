@@ -11,8 +11,21 @@
     -moz-box-sizing: border-box;
 }
 
+.CodeMirror-scroll {
+    height: 100% !important;
+}
+
 .svg-area {
     overflow: auto;
+}
+#svg-preview {
+    background: #eee;
+    padding: 8px;
+}
+#svg-preview > svg {
+    margin: 0 auto;
+    box-shadow: 0 0 5px black;
+    display: block;
 }
 .svg-stats {
     color: #777777;
@@ -25,7 +38,6 @@
     color: #0000AA;
     font-family: monospace;
 }
-
 [contenteditable='true']:hover {
 	outline: 1px dashed black;
 	background: white;
