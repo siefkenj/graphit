@@ -22,7 +22,7 @@ General Public License (at http://www.gnu.org/copyleft/gpl.html)
 for more details.*/
 
 /* encapulate everything in a function's scope.  The only command
- * we really nead is updatePicture, so just give ourselves that */
+ * we really need is updatePicture, so just give ourselves that */
 
 AsciiSVG = (function(){
 
@@ -49,8 +49,6 @@ var dotradius = 4;
 var ticklength = 4;
 var axesstroke = "black";
 var gridstroke = "grey";
-var pointerpos = null;
-var coordinates = null;
 var above = "above";
 var below = "below";
 var left = "left";
@@ -179,35 +177,6 @@ function myCreateElementSVG(t) {
     else return doc.createElementNS("http://www.w3.org/2000/svg", t);
 }
 
-function getX() {
-    return (doc.getElementById("pointerpos").getAttribute("cx") - origin[0]) / xunitlength;
-}
-
-function getY() {
-    return (height - origin[1] - doc.getElementById("pointerpos").getAttribute("cy")) / yunitlength;
-}
-
-function mousemove_listener(evt) {
-//    if (svgpicture.getAttribute("xbase") != null) pointerpos.cx.baseVal.value = evt.clientX - svgpicture.getAttribute("xbase");
-//    if (svgpicture.getAttribute("ybase") != null) pointerpos.cy.baseVal.value = evt.clientY - svgpicture.getAttribute("ybase");
-}
-
-function top_listener(evt) {
-    svgpicture.setAttribute("ybase", evt.clientY);
-}
-
-function bottom_listener(evt) {
-    svgpicture.setAttribute("ybase", evt.clientY - height + 1);
-}
-
-function left_listener(evt) {
-    svgpicture.setAttribute("xbase", evt.clientX);
-}
-
-function right_listener(evt) {
-    svgpicture.setAttribute("xbase", evt.clientX - width + 1);
-}
-
 // Evaluates a paragraph of javascript code, emitting an error on
 // error with the linenumber of the associated error
 function evalMath(src) {
@@ -261,90 +230,6 @@ function evalMath(src) {
     */
 }
 
-function drawPictures() { // main routine; called after webpage has loaded
-    var src, id, dsvg, onmov, nd, node, ht, index;
-    var pictures = document.getElementsByTagName("textarea");
-    for (index = 0; index < pictures.length; index++)
-    if (pictures[index].className == "ASCIIsvg") {
-        pictures[index].style.display = "none"; // hide the textarea
-    }
-    pictures = document.getElementsByTagName("embed");
-    var len = pictures.length;
-    if (nd == null) {
-        for (index = 0; index < len; index++) {
-            xmin = null;
-            xmax = null;
-            ymin = null;
-            ymax = null;
-            xscl = null;
-            xgrid = null;
-            yscl = null;
-            ygrid = null;
-            initialized = false;
-            picture = (isIE ? pictures[index] : pictures[0]);
-            src = picture.getAttribute("script");
-            if (src == null) src = "";
-            ht = picture.getAttribute("height");
-            if (ht == null) ht = "";
-            if (ht != "") defaultborder = 25;
-            if (ht == "" || src == "") if (document.getElementById("picture" + (index + 1) + "input") == null) {
-                if (isIE && src.indexOf("nobutton()") == -1) picture.parentNode.insertBefore(myCreateElementXHTML("br"), picture);
-                node = myCreateElementXHTML("textarea");
-                node.setAttribute("rows", "10");
-                node.setAttribute("cols", "60");
-                //      node.setAttribute("style","display:block");
-                if (isIE) src = src.replace(/([^\r])\n/g, "$1\r").slice(1);
-                node.appendChild(document.createTextNode(src));
-                if (src.indexOf("showcode()") == -1) node.style.display = "none";
-                node.setAttribute("id", "picture" + (index + 1) + "input");
-                picture.parentNode.insertBefore(node, picture);
-
-                if (src.indexOf("nobutton()") == -1) {
-                    picture.parentNode.insertBefore(myCreateElementXHTML("br"), picture);
-
-                    node = myCreateElementXHTML("button");
-                    if (isIE) node.onclick = function () {
-                        showHideCode(this)
-                    };
-                    else node.setAttribute("onclick", "showHideCode(this)");
-                    node.appendChild(document.createTextNode("Show/Hide"));
-                    picture.parentNode.insertBefore(node, picture);
-
-                    node = myCreateElementXHTML("button");
-                    node.appendChild(document.createTextNode("Update"));
-                    if (src.indexOf("showCode()") == -1) node.style.display = "none";
-                    picture.parentNode.insertBefore(node, picture);
-
-                    /*      node = myCreateElementXHTML("span");
-//      node.setAttribute("id","AScoord"+index);
-        node.appendChild(document.createTextNode("(x,y)"));
-        picture.parentNode.insertBefore(node,picture);
-*/
-                    picture.parentNode.insertBefore(myCreateElementXHTML("br"), picture);
-                }
-            } else src = document.getElementById("picture" + (index + 1) + "input").value;
-            src = src.replace(/plot\(\x20*([^\"f\[][^\n\r]+?)\,/g, "plot\(\"$1\",");
-            src = src.replace(/plot\(\x20*([^\"f\[][^\n\r]+)\)/g, "plot(\"$1\")");
-            src = src.replace(/([0-9])([a-zA-Z])/g, "$1*$2");
-            src = src.replace(/\)([\(0-9a-zA-Z])/g, "\)*$1");
-            //    eval(src.replace(/\s\s/g,";")); //for XML version
-            id = picture.getAttribute("id");
-            dsvg = picture.getAttribute("src");
-            if (id == null || id == "") {
-                id = "picture" + (index + 1);
-                picture.setAttribute("id", id);
-            }
-            
-            /* evaluate the math. If there is an error, rethrow it
-             * with the line number */
-            evalMath(src);
-            if (isIE) src = src.replace(/([^\r])\n/g, "$1\r");
-            setText("<embed width=\"" + width + "\" height=\"" + height + "\" src=\"" + dsvg + "\" "  + "script=\'" + src + "\'>", id + "script");
-            //    setText(src.replace(/\s\s/g,"\r"),id+"script"); //for XML version
-        }
-    }
-}
-
 // cannot call the param picture, 'cause that's a global variable!
 function switchTo(picture_xxx) {
     //alert(id);
@@ -362,7 +247,6 @@ function switchTo(picture_xxx) {
         svgpicture = picture.getSVGDocument().getElementById("root");
         doc = picture.getSVGDocument();
     } else {
-        //alert(picture.getAttribute("onmousemove")+"***");
         svgpicture = picture;
         doc = document;
     }
@@ -394,35 +278,8 @@ function updatePicture(src, target) {
     src = src.replace(/plot\(\x20*([^\"f\[][^\n\r]+)\)/g, "plot(\"$1\")");
     src = src.replace(/([0-9])([a-zA-Z])/g, "$1*$2");
     src = src.replace(/\)([\(0-9a-zA-Z])/g, "\)*$1");
-    // alert(src);
 
-    /* evaluate the math. If there is an error, rethrow it
-     * with the line number */
     evalMath(src);
-}
-
-function showHideCode(obj) {
-    var node = obj.nextSibling;
-    while (node != null && node.nodeName != "BUTTON" && node.nodeName != "button") node = node.nextSibling;
-    if (node.style.display == "none") node.style.display = "";
-    else node.style.display = "none";
-    while (node != null && node.nodeName != "TEXTAREA" && node.nodeName != "textarea") node = node.previousSibling;
-    if (node.style.display == "none") node.style.display = "";
-    else node.style.display = "none";
-    //  updatePicture(node.getAttribute("id"));
-}
-
-function hideCode() { //do nothing
-}
-
-function showcode() { //do nothing
-}
-
-function nobutton() { //do nothing
-}
-
-function setBorder(x) {
-    border = x
 }
 
 function initPicture(x_min, x_max, y_min, y_max) {
@@ -446,9 +303,12 @@ function initPicture(x_min, x_max, y_min, y_max) {
         if (y_max != null) ymax = y_max;
         if (xmin == null) xmin = -5;
         if (xmax == null) xmax = 5;
-        if (typeof xmin != "number" || typeof xmax != "number" || xmin >= xmax) alert("Picture requires at least two numbers: xmin < xmax");
-        else if (y_max != null && (typeof y_min != "number" || typeof y_max != "number" || y_min >= y_max)) alert("initPicture(xmin,xmax,ymin,ymax) requires numbers ymin < ymax");
-        else {
+        if (typeof xmin != "number" || typeof xmax != "number" || xmin >= xmax) {
+            throw new Error("Picture requires at least two numbers: xmin < xmax");
+        } else if (y_max != null 
+                   && (typeof y_min != "number" || typeof y_max != "number" || y_min >= y_max)) {
+            throw new Error("initPicture(xmin,xmax,ymin,ymax) requires numbers ymin < ymax");
+        } else {
             if (width == null) width = picture.getAttribute("width");
             else picture.setAttribute("width", width);
             if (width == null || width == "") width = defaultwidth;
@@ -457,7 +317,6 @@ function initPicture(x_min, x_max, y_min, y_max) {
             if (height == null || height == "") height = defaultheight;
             xunitlength = (width - 2 * border) / (xmax - xmin);
             yunitlength = xunitlength;
-            //alert(xmin+" "+xmax+" "+ymin+" "+ymax)
             if (ymin == null) {
                 origin = [-xmin * xunitlength + border, height / 2];
                 ymin = -(height - 2 * border) / (2 * yunitlength);
@@ -484,16 +343,6 @@ function initPicture(x_min, x_max, y_min, y_max) {
                 else svgpicture.parentNode.replaceChild(qnode, svgpicture);
                 svgpicture = qnode;
                 doc = document;
-                pointerpos = doc.getElementById("pointerpos");
-                if (pointerpos == null) {
-                    pointerpos = myCreateElementSVG("circle");
-                    pointerpos.setAttribute("id", "pointerpos");
-                    pointerpos.setAttribute("cx", 0);
-                    pointerpos.setAttribute("cy", 0);
-                    pointerpos.setAttribute("r", 0.5);
-                    pointerpos.setAttribute("fill", "red");
-                    svgpicture.appendChild(pointerpos);
-                }
             }
             //  } else {
             //    svgpicture = picture;
@@ -518,6 +367,9 @@ function initPicture(x_min, x_max, y_min, y_max) {
         }
     }
 }
+
+// included for backwards compatibility
+function setBorder(){}
 
 function line(p, q, id) { // segment connecting points p,q (coordinates in units)
     var node;
@@ -566,8 +418,8 @@ function path(plist, id, c) {
         }
     }
 
-    node.setAttribute('onclick', 'AsciiSVG.clickCallback('+currentLineNumber+')')
-    node.setAttribute('onmouseover', 'AsciiSVG.mouseoverCallback.call(this,'+currentLineNumber+')')
+//    node.setAttribute('onclick', 'AsciiSVG.clickCallback('+currentLineNumber+')')
+//    node.setAttribute('onmouseover', 'AsciiSVG.mouseoverCallback.call(this,'+currentLineNumber+')')
 }
 
 function curve(plist, id) {
@@ -1037,12 +889,47 @@ function plot(fun, x_min, x_max, points, id) {
     var inc = max - min - 0.000001 * (max - min);
     inc = (points == null ? inc / 200 : inc / points);
     var gt;
-    //alert(typeof g(min))
-    for (var t = min; t <= max; t += inc) {
-        gt = g(t);
-        if (!(isNaN(gt) || Math.abs(gt) == "Infinity")) pth[pth.length] = [f(t), gt];
+
+    // when graphing a function, stop plotting if the function
+    // goes off the screen and make separate paths for each on-screen component
+    var inbounds = function(p) {
+        if (isNaN(p[1]) || Math.abs(p[1]) == "Infinity" || p[1] < ymin || p[1] > ymax) {
+            return false;
+        }
+        return true;
     }
-    path(pth, name)
+    var precomputed = [];
+    for (var t = min; t <= max; t += inc) {
+        precomputed.push([t,g(t)]);
+    }
+
+    var pth = [], p, pf, pb;
+    var paths = [];
+    var n = precomputed.length;
+    for (var i = 0; i < n; i++) {
+        p = precomputed[i];
+        pf = precomputed[i+1];
+        pb = precomputed[i-1];
+        if (pf && inbounds(p) === false && inbounds(pf) === true) {
+            paths.push(pth);
+            pth = [];
+            pth.push(p);
+        } else if (pb && inbounds(p) === false && inbounds(pb) === true) {
+            pth.push(p);
+            paths.push(pth);
+            pth = [];
+        } else if (inbounds(p)) {
+            pth.push(p);
+        }
+    }
+    paths.push(pth);
+
+    // draw each of our paths now
+    for (var i = 0; i < paths.length; i++) {
+        if (paths[i].length > 0) {
+            path(paths[i], name);
+        }
+    }
     return p;
 }
 
@@ -1055,28 +942,33 @@ function slopefield(fun, dx, dy) {
     dz = Math.sqrt(dx * dx + dy * dy) / 6;
     var x_min = Math.ceil(xmin / dx);
     var y_min = Math.ceil(ymin / dy);
-    for (x = x_min; x <= xmax; x += dx)
-    for (y = y_min; y <= ymax; y += dy) {
-        gxy = g(x, y);
-        if (!isNaN(gxy)) {
-            if (Math.abs(gxy) == "Infinity") {
-                u = 0;
-                v = dz;
-            } else {
-                u = dz / Math.sqrt(1 + gxy * gxy);
-                v = gxy * u;
+    var pointList = []
+    // generate all the line segments for our slopefeild
+    for (x = x_min; x <= xmax; x += dx) {
+        for (y = y_min; y <= ymax; y += dy) {
+            gxy = g(x, y);
+            if (!isNaN(gxy)) {
+                if (Math.abs(gxy) == "Infinity") {
+                    u = 0;
+                    v = dz;
+                } else {
+                    u = dz / Math.sqrt(1 + gxy * gxy);
+                    v = gxy * u;
+                }
+                pointList.push([x - u, y - v]);
+                pointList.push([x + u, y + v]);
             }
-            line([x - u, y - v], [x + u, y + v]);
         }
     }
-}
-
-function updateCoords(ind) {
-    switchTo("picture" + (ind + 1));
-    var gx = getX(),
-        gy = getY();
-    if ((xmax - gx) * xunitlength > 6 * fontsize || (gy - ymin) * yunitlength > 2 * fontsize) text([xmax, ymin], "(" + gx.toFixed(2) + ", " + gy.toFixed(2) + ")", "aboveleft", "AScoord" + ind, "");
-    else text([xmax, ymin], " ", "aboveleft", "AScoord" + ind, "");
+    // Convert them directly into a path for efficiency.
+    var pathStr = ''
+    for (var i = 0; i < pointList.length; i += 2) {
+        pathStr += 'M' + (pointList[i][0] * xunitlength + origin[0]) + ','
+                       + (height - pointList[i][1] * yunitlength - origin[1]) + ' '
+                       + (pointList[i+1][0] * xunitlength + origin[0]) + ','
+                       + (height - pointList[i+1][1] * yunitlength - origin[1]) + '';
+    }
+    path(pathStr);
 }
 
 // return an object containing updatePicture, since that is all that is needed
