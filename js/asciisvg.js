@@ -900,7 +900,7 @@ function plot(fun, x_min, x_max, points, id) {
     }
     var precomputed = [];
     for (var t = min; t <= max; t += inc) {
-        precomputed.push([t,g(t)]);
+        precomputed.push([f(t),g(t)]);
     }
 
     var pth = [], p, pf, pb;
