@@ -36,55 +36,6 @@ typeOf = function(obj) {
 };
 
 /*
-# Set up the interface
-*/
-
-
-$(document).ready(function() {
-  $('.tabs').tabs();
-  $('.button').button();
-  window.inputArea = CodeMirror.fromTextArea($("#code")[0], {
-    indentWithTabs: true,
-    smartIndent: false,
-    mode: "text/javascript"
-  });
-  $('.svg-stat.editable').map(function() {
-    return makeEditable(this, resizeGraph);
-  });
-  $('#update-graph').click(updateGraph);
-  $('#save-graph').click(saveGraph);
-  $('#load-graph').click(loadGraph);
-  $('#history-load-from-file').click(historyLoadFromFile);
-  $('#history-clear-all').click(historyClearAll);
-  $('#dropbox').hide();
-  $('body')[0].addEventListener('dragenter', FileHandler.dragEnter, false);
-  $('body')[0].addEventListener('dragexit', FileHandler.dragExit, false);
-  $('#dropbox')[0].addEventListener('dragover', FileHandler.dragOver, false);
-  $('body')[0].addEventListener('drop', FileHandler.drop, false);
-  resizeGraph();
-  initializeGraphHistory();
-  return loadExamples();
-});
-
-/*
-# Draw the current graph to #svg-preview
-*/
-
-
-updateGraph = function() {
-  try {
-    AsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0]);
-  } catch (err) {
-    if (err.lineNumber != null) {
-      alert("" + err + "\nline number: " + err.lineNumber + "\nline: " + err.sourceLine);
-    } else {
-      throw err;
-    }
-  }
-  return $("#target").append("<asciisvg>" + inputArea.getValue() + "</asciisvg>");
-};
-
-/*
 # Various methods of downloading data to the users compuer so they can save it.
 # Initially DownloadManager.download will try to bounce off download.php,
 # a server-side script that sends the data it receives back with approprate
@@ -212,18 +163,23 @@ DownloadManager = (function() {
   };
 
   DownloadManager.prototype.downloadBlobBased = function(errorCallback) {
-    var bb, blob, downloadLink, url;
+    var bb, blob, buf, bufView, downloadLink, i, url, _i, _ref;
     if (errorCallback == null) {
       errorCallback = this.download;
     }
     try {
+      buf = new ArrayBuffer(this.data.length);
+      bufView = new Uint8Array(buf);
+      for (i = _i = 0, _ref = this.data.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+        bufView[i] = this.data.charCodeAt(i) & 0xff;
+      }
       try {
-        blob = new Blob([this.data], {
+        blob = new Blob(buf, {
           type: 'application/octet-stream'
         });
       } catch (e) {
         bb = new (window.WebKitBlobBuilder || window.MozBlobBuilder);
-        bb.append(this.data);
+        bb.append(buf);
         blob = bb.getBlob('application/octet-stream');
       }
       url = (window.webkitURL || window.URL).createObjectURL(blob);
@@ -241,7 +197,6 @@ DownloadManager = (function() {
   };
 
   DownloadManager.prototype.downloadDataUriBased = function() {
-    console.log('daturi');
     return document.location.href = "data:application/octet-stream;base64," + btoa(this.data);
   };
 
@@ -250,12 +205,79 @@ DownloadManager = (function() {
 })();
 
 /*
+# Set up the interface
+*/
+
+
+$(document).ready(function() {
+  $('.tabs').tabs();
+  $('.button').button();
+  window.inputArea = CodeMirror.fromTextArea($("#code")[0], {
+    indentWithTabs: true,
+    smartIndent: false,
+    mode: "text/javascript"
+  });
+  $('.svg-stat.editable').map(function() {
+    return makeEditable(this, resizeGraph);
+  });
+  $('#update-graph').click(updateGraph);
+  $('#save-graph').click(function() {
+    return $('#save-dialog').dialog('open');
+  });
+  $('#load-graph').click(loadGraph);
+  $('#history-load-from-file').click(historyLoadFromFile);
+  $('#history-clear-all').click(historyClearAll);
+  $('#dropbox').hide();
+  $('body')[0].addEventListener('dragenter', FileHandler.dragEnter, false);
+  $('body')[0].addEventListener('dragexit', FileHandler.dragExit, false);
+  $('#dropbox')[0].addEventListener('dragover', FileHandler.dragOver, false);
+  $('body')[0].addEventListener('drop', FileHandler.drop, false);
+  $('#save-dialog').dialog({
+    autoOpen: false,
+    buttons: {
+      'Save': function() {
+        var fileFormat, fileName;
+        fileFormat = $('#file-format :selected').val();
+        fileName = "graph." + fileFormat;
+        saveGraph(fileName, fileFormat);
+        return $(this).dialog('close');
+      },
+      'Cancel': function() {
+        return $(this).dialog('close');
+      }
+    }
+  });
+  resizeGraph();
+  initializeGraphHistory();
+  return loadExamples();
+});
+
+/*
+# Draw the current graph to #svg-preview
+*/
+
+
+updateGraph = function() {
+  try {
+    nAsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0], 'svg');
+  } catch (err) {
+    throw err;
+    if (err.lineNumber != null) {
+      alert("" + err + "\nline number: " + err.lineNumber + "\nline: " + err.sourceLine);
+    } else {
+      throw err;
+    }
+  }
+  return $("#target").append("<asciisvg>" + inputArea.getValue() + "</asciisvg>");
+};
+
+/*
 # Saves the graph currently in the preview area
 */
 
 
-saveGraph = function() {
-  var cloned, downloadManager, graphData, htmlifiedSvg, savedGraphList, svgText, thumbnail;
+saveGraph = function(fileName, fileFormat) {
+  var canvas, cloned, ctx, data, downloadManager, graphData, height, htmlifiedSvg, pdfDoc, pdfRaw, savedGraphList, svgText, thumbnail, width;
   updateGraph();
   cloned = $('#target').clone();
   htmlifiedSvg = $('<div></div>').append(cloned);
@@ -271,7 +293,26 @@ saveGraph = function() {
   savedGraphList[graphData.hash()] = graphData.toJSON();
   $.jStorage.set('savedgraphs', savedGraphList);
   window.lastSavedGraph = graphData.toJSON();
-  downloadManager = new DownloadManager('graph.svg', svgText, 'image/svg+xml');
+  width = parseFloat($('#svg-preview').children().attr('width'));
+  height = parseFloat($('#svg-preview').children().attr('height'));
+  if (fileFormat === 'svg') {
+    downloadManager = new DownloadManager(fileName, svgText, 'image/svg+xml');
+  } else if (fileFormat === 'pdf') {
+    pdfDoc = new PDFDocument({
+      size: [width, height]
+    });
+    nAsciiSVG.ctx().playbackTo(pdfDoc, 'pdf');
+    pdfRaw = pdfDoc.output();
+    window.pdfDoc = pdfDoc;
+    downloadManager = new DownloadManager(fileName, pdfRaw, 'application/pdf');
+  } else if (fileFormat === 'png') {
+    canvas = $("<canvas width='" + width + "' height='" + height + "'></canvas>")[0];
+    ctx = canvas.getContext('2d');
+    nAsciiSVG.ctx().playbackTo(ctx, 'canvas');
+    data = canvas.toDataURL('image/png');
+    data = atob(data.slice('data:image/png;base64,'.length));
+    downloadManager = new DownloadManager(fileName, data, 'image/png');
+  }
   return downloadManager.download();
 };
 
@@ -312,7 +353,7 @@ resizeGraph = function(dims) {
   }
   aspect = dims.width / dims.height;
   $('#svg-stat-aspect').text(round(aspect, 2));
-  $('#target').attr({
+  $('#svg-preview').children().attr({
     width: dims.width,
     height: dims.height
   });

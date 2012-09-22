@@ -20,20 +20,28 @@
 	<link rel="stylesheet" type="text/css" href="jquery/css/redmond/jquery-ui-1.8.18.custom.css" />
 	<script type="text/javascript" src="jquery/js/jquery.json-2.3.js"></script>
 	<script type="text/javascript" src="jquery/js/jstorage.js"></script>
-	
+
 	<!-- graphit includes -->
 	<script src="js/interface.js"></script>
 	<script src="js/asciisvg.js"></script>
+	<script src="js/coffeesvg.js"></script>
 	<script src="js/md5.js"></script>
 	<link rel="stylesheet" href="css/interface.css">
 	<!-- load the thumbnail gallery code -->
 	<script src="js/gallery.js"></script>
 	<link rel="stylesheet" href="css/gallery.css">
 
+	<!-- pdf support -->
+	<script src="pdfkit-www/pdfkit-0.1-allfonts.min.js"></script>
+
 	<!-- CodeMirror -->
 	<script src="codemirror/lib/codemirror.js"></script>
 	<link rel="stylesheet" href="codemirror/lib/codemirror.css">
 	<script src="codemirror/mode/javascript/javascript.js"></script>
+
+	<!-- canvg for svg-to-canvas -->
+	<script src="canvg/rgbcolor.js"></script>
+	<script src="canvg/canvg.js"></script>
 </head>
 <body>
 	<!--[if lt IE 7]>
@@ -71,7 +79,7 @@ strokewidth = "2"
 stroke = "blue"
 plot("x^2/4")
 
-stroke = "red"
+//stroke = "red"
 //plot(["5*t*cos(pi*t)", "5*t*sin(pi*t)"],0,1)
 
 //stroke = "green"
@@ -99,7 +107,9 @@ stroke = "red"
 						</div>
 						<div id="svg-preview">
 							<svg id="target" xml:space="preserve" width="550" height="450" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
-						</div>					
+							<!-- <svg id="target_svg" xml:space="preserve" width="550" height="450" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg> -->
+							<!-- <svg id="target_canvas" xml:space="preserve" width="550" height="450" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg> -->
+						</div>
 					</div>
 				</div>
 			</div>
@@ -109,10 +119,10 @@ stroke = "red"
 					<span class='button' id='history-load-from-file'>Load From File</span>
 					<span class='button' id='history-clear-all'>Clear All</span>
 					<p>
-						Note these graphs are stored locally 
+						Note these graphs are stored locally
 						and will not be available on
-						another computer or different browser.  
-						To store a graph permanently, please 
+						another computer or different browser.
+						To store a graph permanently, please
 						save it to your hard drive.
 					</p>
 				</div>
@@ -189,5 +199,13 @@ stroke = "red"
 	<!-- invisible iframe so that we can trigger downloads by setting the url
 	of the iframe without changing the url of the main window -->
 	<iframe id='downloads_iframe' name='downloads_iframe' src='' style="display:none; visibility:hidden;"></iframe>
+	<div id='save-dialog'>
+		<h3>Select the file format to save in</h3>
+		<select id='file-format'>
+			<option value='svg'>SVG</option>
+			<option value='png'>PNG</option>
+			<option value='pdf' selected='true'>PDF</option>
+		</select>
+	</div>
 </body>
 </html>

@@ -26,62 +26,6 @@ typeOf = (obj) ->
         return 'object'
     return constructorName
 
-
-###
-# Set up the interface
-###
-$(document).ready ->
-    $('.tabs').tabs()
-    $('.button').button()
-
-    # set up CodeMirror in the editing window
-    window.inputArea = CodeMirror.fromTextArea($("#code")[0],
-        indentWithTabs: true
-        smartIndent: false # if we don't end our lines with semicolons, this will try to indent them if enabled
-        mode: "text/javascript"
-    )
-
-    $('.svg-stat.editable').map(-> makeEditable(this, resizeGraph))
-
-    # set up the callbacks
-    $('#update-graph').click updateGraph
-    $('#save-graph').click saveGraph
-    $('#load-graph').click loadGraph
-
-    $('#history-load-from-file').click historyLoadFromFile
-    $('#history-clear-all').click historyClearAll
-
-    # set up the drag-and-drop
-    $('#dropbox').hide()
-    $('body')[0].addEventListener('dragenter', FileHandler.dragEnter, false)
-    $('body')[0].addEventListener('dragexit', FileHandler.dragExit, false)
-    $('#dropbox')[0].addEventListener('dragover', FileHandler.dragOver, false)
-    $('body')[0].addEventListener('drop', FileHandler.drop, false)
-
-    # initialize everything
-    resizeGraph()
-    initializeGraphHistory()
-    loadExamples()
-
-
-###
-# Draw the current graph to #svg-preview
-###
-updateGraph = ->
-    try
-        AsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0])
-    catch err
-        # see if it is an error that we can highlight
-        # in the code
-        if err.lineNumber?
-#            highlight = inputArea.markText({line: err.lineNumber, ch:0}, {line: err.lineNumber, ch:null}, 'code-error')
-#            highlightedErrors.push highlight
-            alert("#{err}\nline number: #{err.lineNumber}\nline: #{err.sourceLine}")
-        else
-            throw err
-            
-    $("#target").append("<asciisvg>" + inputArea.getValue() + "</asciisvg>")
-
 ###
 # Various methods of downloading data to the users compuer so they can save it.
 # Initially DownloadManager.download will try to bounce off download.php,
@@ -163,16 +107,23 @@ class DownloadManager
 
     downloadBlobBased: (errorCallback=@download) =>
         try
+            # first convert everything to an arraybuffer so raw bytes in our string
+            # don't get mangled
+            buf = new ArrayBuffer(@data.length)
+            bufView = new Uint8Array(buf)
+            for i in [0...@data.length]
+                bufView[i] = @data.charCodeAt(i) & 0xff
+
             try
                 # This is the recommended method:
-                blob = new Blob([@data], {type: 'application/octet-stream'})
+                blob = new Blob(buf, {type: 'application/octet-stream'})
             catch e
                 # The BlobBuilder API has been deprecated in favour of Blob, but older
                 # browsers don't know about the Blob constructor
                 # IE10 also supports BlobBuilder, but since the `Blob` constructor
                 # also works, there's no need to add `MSBlobBuilder`.
                 bb = new (window.WebKitBlobBuilder || window.MozBlobBuilder)
-                bb.append(@data)
+                bb.append(buf)
                 blob = bb.getBlob('application/octet-stream')
 
             url = (window.webkitURL || window.URL).createObjectURL(blob)
@@ -188,14 +139,85 @@ class DownloadManager
             errorCallback.call(this)
 
     downloadDataUriBased: () =>
-        console.log 'daturi'
         document.location.href = "data:application/octet-stream;base64," + btoa(@data)
+
+
+###
+# Set up the interface
+###
+$(document).ready ->
+    $('.tabs').tabs()
+    $('.button').button()
+
+    # set up CodeMirror in the editing window
+    window.inputArea = CodeMirror.fromTextArea($("#code")[0],
+        indentWithTabs: true
+        smartIndent: false # if we don't end our lines with semicolons, this will try to indent them if enabled
+        mode: "text/javascript"
+    )
+
+    $('.svg-stat.editable').map(-> makeEditable(this, resizeGraph))
+
+    # set up the callbacks
+    $('#update-graph').click updateGraph
+    $('#save-graph').click ->
+        $('#save-dialog').dialog('open')
+    $('#load-graph').click loadGraph
+
+    $('#history-load-from-file').click historyLoadFromFile
+    $('#history-clear-all').click historyClearAll
+
+    # set up the drag-and-drop
+    $('#dropbox').hide()
+    $('body')[0].addEventListener('dragenter', FileHandler.dragEnter, false)
+    $('body')[0].addEventListener('dragexit', FileHandler.dragExit, false)
+    $('#dropbox')[0].addEventListener('dragover', FileHandler.dragOver, false)
+    $('body')[0].addEventListener('drop', FileHandler.drop, false)
+
+    # set up the save dialog
+    $('#save-dialog').dialog
+        autoOpen: false
+        buttons:
+            'Save': ->
+                fileFormat = $('#file-format :selected').val()
+                fileName = "graph.#{fileFormat}"
+                saveGraph(fileName, fileFormat)
+                $(this).dialog('close')
+
+            'Cancel': ->
+                $(this).dialog('close')
+
+    # initialize everything
+    resizeGraph()
+    initializeGraphHistory()
+    loadExamples()
+
+###
+# Draw the current graph to #svg-preview
+###
+updateGraph = ->
+    try
+        #AsciiSVG.updatePicture(inputArea.getValue(), $("#target_svg")[0])
+        nAsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0], 'svg')
+        #nAsciiSVG.updatePicture(inputArea.getValue(), $("#target_canvas")[0],'canvas')
+    catch err
+        throw err
+        # see if it is an error that we can highlight
+        # in the code
+        if err.lineNumber?
+#            highlight = inputArea.markText({line: err.lineNumber, ch:0}, {line: err.lineNumber, ch:null}, 'code-error')
+#            highlightedErrors.push highlight
+            alert("#{err}\nline number: #{err.lineNumber}\nline: #{err.sourceLine}")
+        else
+            throw err
+            
+    $("#target").append("<asciisvg>" + inputArea.getValue() + "</asciisvg>")
 
 
 ###
 # Saves the graph currently in the preview area
 ###
-saveGraph = ->
+saveGraph = (fileName, fileFormat) ->
     updateGraph()
 
     #
@@ -203,6 +225,7 @@ saveGraph = ->
     #
 
     # clone the object and unset its id
+    # so that we can use it as an svg thumbnail
     cloned = $('#target').clone()
     htmlifiedSvg = $('<div></div>').append(cloned)
     svgText = htmlifiedSvg.html()
@@ -228,7 +251,25 @@ saveGraph = ->
     #
     # Prompt to save to the harddrive
     #
-    downloadManager = new DownloadManager('graph.svg', svgText, 'image/svg+xml')
+    width = parseFloat($('#svg-preview').children().attr('width'))
+    height = parseFloat($('#svg-preview').children().attr('height'))
+    if fileFormat is 'svg'
+        downloadManager = new DownloadManager(fileName, svgText, 'image/svg+xml')
+    else if fileFormat is 'pdf'
+        pdfDoc = new PDFDocument({size: [width, height]})
+        nAsciiSVG.ctx().playbackTo(pdfDoc, 'pdf')
+        pdfRaw = pdfDoc.output()
+        window.pdfDoc = pdfDoc
+        downloadManager = new DownloadManager(fileName, pdfRaw, 'application/pdf')
+    else if fileFormat is 'png'
+        canvas = $("<canvas width='#{width}' height='#{height}'></canvas>")[0]
+        ctx = canvas.getContext('2d')
+        nAsciiSVG.ctx().playbackTo(ctx, 'canvas')
+        data = canvas.toDataURL('image/png')
+        #window.open(data)
+        data = atob(data.slice('data:image/png;base64,'.length))
+        downloadManager = new DownloadManager(fileName, data, 'image/png')
+
     downloadManager.download()
 
 # TODO: fix so it works in chromium/chrome...Right now we use an
@@ -265,7 +306,7 @@ resizeGraph = (dims) ->
     aspect = dims.width/dims.height
     $('#svg-stat-aspect').text(round(aspect,2))
 
-    $('#target').attr({width: dims.width, height: dims.height})
+    $('#svg-preview').children().attr({width: dims.width, height: dims.height})
     updateGraph()
 
 #

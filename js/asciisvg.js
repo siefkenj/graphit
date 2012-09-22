@@ -25,6 +25,7 @@ for more details.*/
  * we really need is updatePicture, so just give ourselves that */
 
 AsciiSVG = (function(){
+window.drawingCommands = [];
 
 var currentLineNumber = -1;
 var checkIfSVGavailable = true;
@@ -326,28 +327,15 @@ function initPicture(x_min, x_max, y_min, y_max) {
                 else ymax = (height - 2 * border) / yunitlength + ymin;
                 origin = [-xmin * xunitlength + border, -ymin * yunitlength + border];
             }
-            //  if (true ||picture.nodeName == "EMBED" || picture.nodeName == "embed") {
-            if (isIE) {
-                svgpicture = picture.getSVGDocument().getElementById("root");
-                while (svgpicture.childNodes.length() > 5)
-                svgpicture.removeChild(svgpicture.lastChild);
-                svgpicture.setAttribute("width", width);
-                svgpicture.setAttribute("height", height);
-                doc = picture.getSVGDocument();
-            } else {
-                var qnode = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-                qnode.setAttribute("id", picture.getAttribute("id"));
-                qnode.setAttribute("width", picture.getAttribute("width"));
-                qnode.setAttribute("height", picture.getAttribute("height"));
-                if (picture.parentNode != null) picture.parentNode.replaceChild(qnode, picture);
-                else svgpicture.parentNode.replaceChild(qnode, svgpicture);
-                svgpicture = qnode;
-                doc = document;
-            }
-            //  } else {
-            //    svgpicture = picture;
-            //    doc = document;
-            //  }
+            var qnode = myCreateElementSVG("svg");
+            qnode.setAttribute("id", picture.getAttribute("id"));
+            qnode.setAttribute("width", picture.getAttribute("width"));
+            qnode.setAttribute("height", picture.getAttribute("height"));
+            if (picture.parentNode != null) picture.parentNode.replaceChild(qnode, picture);
+            else svgpicture.parentNode.replaceChild(qnode, svgpicture);
+            svgpicture = qnode;
+            doc = document;
+
             svgpicture.setAttribute("xunitlength", xunitlength);
             svgpicture.setAttribute("yunitlength", yunitlength);
             svgpicture.setAttribute("xmin", xmin);
@@ -379,7 +367,7 @@ function line(p, q, id) { // segment connecting points p,q (coordinates in units
         node.setAttribute("id", id);
         svgpicture.appendChild(node);
     }
-    node.setAttribute("d", "M" + (p[0] * xunitlength + origin[0]) + "," + (height - p[1] * yunitlength - origin[1]) + " " + (q[0] * xunitlength + origin[0]) + "," + (height - q[1] * yunitlength - origin[1]));
+    node.setAttribute("d", "M" + (p[0] * xunitlength + origin[0]) + "," + (height - p[1] * yunitlength - origin[1]) + "L" + (q[0] * xunitlength + origin[0]) + "," + (height - q[1] * yunitlength - origin[1]));
     node.setAttribute("stroke-width", strokewidth);
     if (strokedasharray != null) node.setAttribute("stroke-dasharray", strokedasharray);
     node.setAttribute("stroke", stroke);
@@ -403,9 +391,9 @@ function path(plist, id, c) {
     if (typeof plist == "string") st = plist;
     else {
         st = "M";
-        st += (plist[0][0] * xunitlength + origin[0]) + "," + (height - plist[0][1] * yunitlength - origin[1]) + " " + c;
+        st += (plist[0][0] * xunitlength + origin[0]) + "," + (height - plist[0][1] * yunitlength - origin[1]) + "L" + c;
         for (i = 1; i < plist.length; i++)
-        st += (plist[i][0] * xunitlength + origin[0]) + "," + (height - plist[i][1] * yunitlength - origin[1]) + " ";
+        st += (plist[i][0] * xunitlength + origin[0]) + "," + (height - plist[i][1] * yunitlength - origin[1]) + "L";
     }
     node.setAttribute("d", st);
     node.setAttribute("stroke-width", strokewidth);
@@ -613,7 +601,7 @@ function arrowhead(p, q) { // draw arrowhead at q (in units)
         u = [u[0] / d, u[1] / d];
         up = [-u[1], u[0]];
         var node = myCreateElementSVG("path");
-        node.setAttribute("d", "M " + (w[0] - 15 * u[0] - 4 * up[0]) + " " + (w[1] - 15 * u[1] - 4 * up[1]) + " L " + (w[0] - 3 * u[0]) + " " + (w[1] - 3 * u[1]) + " L " + (w[0] - 15 * u[0] + 4 * up[0]) + " " + (w[1] - 15 * u[1] + 4 * up[1]) + " z");
+        node.setAttribute("d", "M " + (w[0] - 15 * u[0] - 4 * up[0]) + "L" + (w[1] - 15 * u[1] - 4 * up[1]) + " L " + (w[0] - 3 * u[0]) + "L" + (w[1] - 3 * u[1]) + " L " + (w[0] - 15 * u[0] + 4 * up[0]) + "L" + (w[1] - 15 * u[1] + 4 * up[1]) + " z");
         node.setAttribute("stroke-width", markerstrokewidth);
         node.setAttribute("stroke", stroke); /*was markerstroke*/
         node.setAttribute("fill", stroke); /*was arrowfill*/
@@ -679,16 +667,16 @@ function axes(dx, dy, labels, gdx, gdy) {
         pnode = myCreateElementSVG("path");
         st = "";
         for (x = origin[0]; x < width; x = x + gdx) {
-            st += " M" + x + ",0" + " " + x + "," + height;
+            st += " M" + x + ",0" + "L" + x + "," + height;
         }
         for (x = origin[0] - gdx; x > 0; x = x - gdx) {
-            st += " M" + x + ",0" + " " + x + "," + height;
+            st += " M" + x + ",0" + "L" + x + "," + height;
         }
         for (y = height - origin[1]; y < height; y = y + gdy) {
-            st += " M0," + y + " " + width + "," + y;
+            st += " M0," + y + "L" + width + "," + y;
         }
         for (y = height - origin[1] - gdy; y > 0; y = y - gdy) {
-            st += " M0," + y + " " + width + "," + y;
+            st += " M0," + y + "L" + width + "," + y;
         }
         pnode.setAttribute("d", st);
         pnode.setAttribute("stroke-width", .5);
@@ -697,18 +685,18 @@ function axes(dx, dy, labels, gdx, gdy) {
         svgpicture.appendChild(pnode);
     }
     pnode = myCreateElementSVG("path");
-    st = "M0," + (height - origin[1]) + " " + width + "," + (height - origin[1]) + " M" + origin[0] + ",0 " + origin[0] + "," + height;
+    st = "M0," + (height - origin[1]) + "L" + width + "," + (height - origin[1]) + " M" + origin[0] + ",0 " + origin[0] + "," + height;
     for (x = origin[0] + dx; x < width; x = x + dx) {
-        st += " M" + x + "," + (height - origin[1] + ticklength) + " " + x + "," + (height - origin[1] - ticklength);
+        st += " M" + x + "," + (height - origin[1] + ticklength) + "L" + x + "," + (height - origin[1] - ticklength);
     }
     for (x = origin[0] - dx; x > 0; x = x - dx) {
-        st += " M" + x + "," + (height - origin[1] + ticklength) + " " + x + "," + (height - origin[1] - ticklength);
+        st += " M" + x + "," + (height - origin[1] + ticklength) + "L" + x + "," + (height - origin[1] - ticklength);
     }
     for (y = height - origin[1] + dy; y < height; y = y + dy) {
-        st += " M" + (origin[0] + ticklength) + "," + y + " " + (origin[0] - ticklength) + "," + y;
+        st += " M" + (origin[0] + ticklength) + "," + y + "L" + (origin[0] - ticklength) + "," + y;
     }
     for (y = height - origin[1] - dy; y > 0; y = y - dy) {
-        st += " M" + (origin[0] + ticklength) + "," + y + " " + (origin[0] - ticklength) + "," + y;
+        st += " M" + (origin[0] + ticklength) + "," + y + "L" + (origin[0] - ticklength) + "," + y;
     }
     if (labels != null) with(Math) {
         ldx = dx / xunitlength;
