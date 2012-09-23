@@ -414,9 +414,13 @@ FileHandler =
         $('#dropbox').hide()
         $('#dropbox').removeClass('dropbox-hover')
         $('.tabs').show()
-        evt.stopPropagation()
-        evt.preventDefault()
+        if evt?
+            evt.stopPropagation()
+            evt.preventDefault()
     dragOver: (evt,b) ->
+        if not evt?
+            $('#dropbox').removeClass('dropbox-hover')
+            return
         $('#dropbox').addClass('dropbox-hover')
         evt.stopPropagation()
         evt.preventDefault()

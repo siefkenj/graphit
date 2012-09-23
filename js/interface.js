@@ -477,10 +477,16 @@ FileHandler = {
     $('#dropbox').hide();
     $('#dropbox').removeClass('dropbox-hover');
     $('.tabs').show();
-    evt.stopPropagation();
-    return evt.preventDefault();
+    if (evt != null) {
+      evt.stopPropagation();
+      return evt.preventDefault();
+    }
   },
   dragOver: function(evt, b) {
+    if (!(evt != null)) {
+      $('#dropbox').removeClass('dropbox-hover');
+      return;
+    }
     $('#dropbox').addClass('dropbox-hover');
     evt.stopPropagation();
     return evt.preventDefault();
