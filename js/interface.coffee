@@ -230,21 +230,24 @@ saveGraph = (fileName, fileFormat) ->
     htmlifiedSvg = $('<div></div>').append(cloned)
     svgText = htmlifiedSvg.html()
 
+    # This may be bad, but reload the storage before a save so
+    # we don't overwrite data that was saved from another tab...
+    $.jStorage.reInit()
+    savedGraphList = $.jStorage.get('savedgraphs') or {}
+    
     graphData = new GraphData(svgText)
     graphData.onclick = loadGraphFromGraphData
     graphData.ondelete = deleteGraphFromGraphData
     thumbnail = graphData.createThumbnail()
     graphData.makeDeletable()
-    $('#history-gallery .gallery-container').append(thumbnail)
+    hash = graphData.hash()
+    # only add to local storage if the graph doesn't already exist there
+    if not savedGraphList[hash]
+        $('#history-gallery .gallery-container').append(thumbnail)
 
-    # append the graph to the list kept in local storage
-
-    # This may be bad, but reload the storage before a save so
-    # we don't overwrite data that was saved from another tab...
-    $.jStorage.reInit()
-    savedGraphList = $.jStorage.get('savedgraphs') or {}
-    savedGraphList[graphData.hash()] = graphData.toJSON()
-    $.jStorage.set('savedgraphs', savedGraphList)
+        # append the graph to the list kept in local storage
+        savedGraphList[graphData.hash()] = graphData.toJSON()
+        $.jStorage.set('savedgraphs', savedGraphList)
     # XXX: this is for debugging/grabbing json text to use in the example file
     window.lastSavedGraph = graphData.toJSON()
 

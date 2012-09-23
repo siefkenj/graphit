@@ -143,7 +143,7 @@ class GraphData
 
     # a hopefully unique hash that isn't too long for use in local storage
     hash: ->
-        return hex_md5(@.toString())
+        return hex_md5(@svgText)
 
     # return a new GraphData constructed from a stringified version of a GraphData object
     @fromJSON: (obj) ->

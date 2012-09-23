@@ -277,21 +277,24 @@ updateGraph = function() {
 
 
 saveGraph = function(fileName, fileFormat) {
-  var canvas, cloned, ctx, data, downloadManager, graphData, height, htmlifiedSvg, pdfDoc, pdfRaw, savedGraphList, svgText, thumbnail, width;
+  var canvas, cloned, ctx, data, downloadManager, graphData, hash, height, htmlifiedSvg, pdfDoc, pdfRaw, savedGraphList, svgText, thumbnail, width;
   updateGraph();
   cloned = $('#target').clone();
   htmlifiedSvg = $('<div></div>').append(cloned);
   svgText = htmlifiedSvg.html();
+  $.jStorage.reInit();
+  savedGraphList = $.jStorage.get('savedgraphs') || {};
   graphData = new GraphData(svgText);
   graphData.onclick = loadGraphFromGraphData;
   graphData.ondelete = deleteGraphFromGraphData;
   thumbnail = graphData.createThumbnail();
   graphData.makeDeletable();
-  $('#history-gallery .gallery-container').append(thumbnail);
-  $.jStorage.reInit();
-  savedGraphList = $.jStorage.get('savedgraphs') || {};
-  savedGraphList[graphData.hash()] = graphData.toJSON();
-  $.jStorage.set('savedgraphs', savedGraphList);
+  hash = graphData.hash();
+  if (!savedGraphList[hash]) {
+    $('#history-gallery .gallery-container').append(thumbnail);
+    savedGraphList[graphData.hash()] = graphData.toJSON();
+    $.jStorage.set('savedgraphs', savedGraphList);
+  }
   window.lastSavedGraph = graphData.toJSON();
   width = parseFloat($('#svg-preview').children().attr('width'));
   height = parseFloat($('#svg-preview').children().attr('height'));

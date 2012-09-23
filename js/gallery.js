@@ -151,7 +151,7 @@ GraphData = (function() {
   };
 
   GraphData.prototype.hash = function() {
-    return hex_md5(this.toString());
+    return hex_md5(this.svgText);
   };
 
   GraphData.fromJSON = function(obj) {
