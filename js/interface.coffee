@@ -155,6 +155,12 @@ $(document).ready ->
         smartIndent: false # if we don't end our lines with semicolons, this will try to indent them if enabled
         mode: "text/javascript"
     )
+    # when we click in the blank space below the code area,
+    # we should automatically set our focus to the code area
+    $('.work-area').click (evt) ->
+        if evt.target is this
+            inputArea.focus()
+            inputArea.setCursor({line: Infinity, ch: 0})
 
     $('.svg-stat.editable').map(-> makeEditable(this, resizeGraph))
 

@@ -217,6 +217,15 @@ $(document).ready(function() {
     smartIndent: false,
     mode: "text/javascript"
   });
+  $('.work-area').click(function(evt) {
+    if (evt.target === this) {
+      inputArea.focus();
+      return inputArea.setCursor({
+        line: Infinity,
+        ch: 0
+      });
+    }
+  });
   $('.svg-stat.editable').map(function() {
     return makeEditable(this, resizeGraph);
   });
