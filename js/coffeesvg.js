@@ -1235,7 +1235,7 @@ window.nAsciiSVG = (function() {
     if (typeOf(func) === 'string') {
       eval("g = function(x,y){ return " + (mathjs(func)) + " }");
     }
-    dz = sqrt(dx * dx + dy * dy) / 6;
+    dz = sqrt(dx * dx + dy * dy) / 4;
     x_min = ceil(xmin / dx) * dx;
     y_min = ceil(ymin / dy) * dy;
     pointList = [];
@@ -1250,7 +1250,9 @@ window.nAsciiSVG = (function() {
             u = dz / sqrt(1 + gxy * gxy);
             v = gxy * u;
           }
-          pointList.push([[x - u, y - v], [x + u, y + v]]);
+          if ((xmin <= x && x <= xmax) && (ymin <= y && y <= ymax)) {
+            pointList.push([[x - u, y - v], [x + u, y + v]]);
+          }
         }
       }
     }

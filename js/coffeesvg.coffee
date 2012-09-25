@@ -942,7 +942,7 @@ window.nAsciiSVG = (->
         g = func
         if typeOf(func) is 'string'
             eval("g = function(x,y){ return #{mathjs(func)} }")
-        dz = sqrt(dx*dx+dy*dy)/6
+        dz = sqrt(dx*dx+dy*dy)/4
         x_min = ceil(xmin / dx) * dx
         y_min = ceil(ymin / dy) * dy
         pointList = []
@@ -957,7 +957,8 @@ window.nAsciiSVG = (->
                     else
                         u = dz / sqrt(1 + gxy*gxy)
                         v = gxy * u
-                    pointList.push [[x-u,y-v],[x+u,y+v]]
+                    if xmin <= x <= xmax and ymin <= y <= ymax
+                        pointList.push [[x-u,y-v],[x+u,y+v]]
         for l in pointList
             line(l[0],l[1])
         return
