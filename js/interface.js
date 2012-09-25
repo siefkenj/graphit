@@ -314,6 +314,7 @@ saveGraph = function(fileName, fileFormat) {
       size: [width, height]
     });
     nAsciiSVG.ctx().playbackTo(pdfDoc, 'pdf');
+    pdfDoc.info['graphitCode'] = inputArea.getValue();
     pdfRaw = pdfDoc.output();
     window.pdfDoc = pdfDoc;
     downloadManager = new DownloadManager(fileName, pdfRaw, 'application/pdf');
@@ -471,12 +472,35 @@ FileHandler = {
     }
   },
   handleReaderLoadEnd: function(evt) {
-    var data;
+    var code, data, height, m, width;
     if (evt.target.error) {
       throw new Error(evt.target.error + " Error Code: " + evt.target.error.code + " ");
       return;
     }
     data = FileHandler.decodeDataURI(evt.target.result);
+    if (data.slice(0, 4) === '%PDF') {
+      m = data.match(/\/graphitCode \(([\s\S]*?[^\\])\)/);
+      if (!(m != null)) {
+        throw new Error("Could not extract graphit code from PDF");
+      }
+      m = m[1];
+      code = m.replace(/\\\(/g, '(').replace(/\\\)/g, ')').replace(/\\\\/g, '\\');
+      m = data.match(/\/MediaBox [0 0 (\d+) (\d+)]/);
+      if (m != null) {
+        width = m[1];
+        height = m[2];
+      } else {
+        width = 550;
+        height = 450;
+      }
+      resizeGraph({
+        width: width,
+        height: height
+      });
+      inputArea.setValue(code);
+      updateGraph();
+      return;
+    }
     return setGraphFromSvg(data);
   },
   dragEnter: function(evt) {

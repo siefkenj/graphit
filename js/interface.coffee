@@ -267,6 +267,7 @@ saveGraph = (fileName, fileFormat) ->
     else if fileFormat is 'pdf'
         pdfDoc = new PDFDocument({size: [width, height]})
         nAsciiSVG.ctx().playbackTo(pdfDoc, 'pdf')
+        pdfDoc.info['graphitCode'] = inputArea.getValue()
         pdfRaw = pdfDoc.output()
         window.pdfDoc = pdfDoc
         downloadManager = new DownloadManager(fileName, pdfRaw, 'application/pdf')
@@ -412,6 +413,29 @@ FileHandler =
             throw new Error(evt.target.error + " Error Code: " + evt.target.error.code + " ")
             return
         data = FileHandler.decodeDataURI(evt.target.result)
+        # process the data depending on the file format
+        if data[0...4] is '%PDF'
+            # [\s\S] is equivalent to . but it matches newlines aswell
+            m = data.match(/\/graphitCode \(([\s\S]*?[^\\])\)/)
+            if not m?
+                throw new Error("Could not extract graphit code from PDF")
+            # grab the match
+            m = m[1]
+            # replace all escaped parens with unescaped ones
+            # as well as escaped backslashes
+            code = m.replace(/\\\(/g, '(').replace(/\\\)/g, ')').replace(/\\\\/g,'\\')
+            # look for the width and height
+            m = data.match(/\/MediaBox [0 0 (\d+) (\d+)]/)
+            if m?
+                width = m[1]
+                height = m[2]
+            else
+                width = 550
+                height = 450
+            resizeGraph({width:width, height:height})
+            inputArea.setValue(code)
+            updateGraph()
+            return
         setGraphFromSvg data
 
     dragEnter: (evt) ->
