@@ -908,7 +908,34 @@ window.nAsciiSVG = (->
         for t in [x_min..x_max] by inc
             points.push [f(t),g(t)]
 
-        path(points)
+        # when graphing a function, we ony want to plot
+        # the pieces that are on screen, so split the graph up into its
+        # connected components.
+        inbounds = (p) ->
+            if p[1] > ymin and p[1] < ymax and p[0] > xmin and p[0] < xmax
+                return true
+            return false
+        paths = []
+        workingPath = []
+        for p,i in points
+            pNext = points[i+1]
+            pPrevious = points[i-1]
+            pInBounds = inbounds(p)
+            if pNext and pInBounds is false and inbounds(pNext) is true
+                paths.push workingPath
+                workingPath = []
+                workingPath.push p
+            else if pPrevious and pInBounds is false and inbounds(pPrevious) is true
+                workingPath.push p
+                paths.push workingPath
+                workingPath = []
+            else if pInBounds
+                workingPath.push p
+        paths.push workingPath
+
+        for p in paths
+            if p.length > 0
+                path(p)
         return
 
     slopefield = (func, dx=1, dy=1) ->

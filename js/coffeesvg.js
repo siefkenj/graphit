@@ -1144,7 +1144,7 @@ window.nAsciiSVG = (function() {
     }
   };
   plot = function(func, x_min, x_max, samples) {
-    var f, g, inc, points, t, toFunc, _i;
+    var f, g, i, inbounds, inc, p, pInBounds, pNext, pPrevious, paths, points, t, toFunc, workingPath, _i, _j, _k, _len, _len1;
     if (x_min == null) {
       x_min = xmin;
     }
@@ -1190,7 +1190,38 @@ window.nAsciiSVG = (function() {
     for (t = _i = x_min; x_min <= x_max ? _i <= x_max : _i >= x_max; t = _i += inc) {
       points.push([f(t), g(t)]);
     }
-    path(points);
+    inbounds = function(p) {
+      if (p[1] > ymin && p[1] < ymax && p[0] > xmin && p[0] < xmax) {
+        return true;
+      }
+      return false;
+    };
+    paths = [];
+    workingPath = [];
+    for (i = _j = 0, _len = points.length; _j < _len; i = ++_j) {
+      p = points[i];
+      pNext = points[i + 1];
+      pPrevious = points[i - 1];
+      pInBounds = inbounds(p);
+      if (pNext && pInBounds === false && inbounds(pNext) === true) {
+        paths.push(workingPath);
+        workingPath = [];
+        workingPath.push(p);
+      } else if (pPrevious && pInBounds === false && inbounds(pPrevious) === true) {
+        workingPath.push(p);
+        paths.push(workingPath);
+        workingPath = [];
+      } else if (pInBounds) {
+        workingPath.push(p);
+      }
+    }
+    paths.push(workingPath);
+    for (_k = 0, _len1 = paths.length; _k < _len1; _k++) {
+      p = paths[_k];
+      if (p.length > 0) {
+        path(p);
+      }
+    }
   };
   slopefield = function(func, dx, dy) {
     var dz, g, gxy, l, pointList, u, v, x, x_min, y, y_min, _i, _j, _k, _len;
