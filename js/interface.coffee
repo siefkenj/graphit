@@ -96,7 +96,8 @@ class DownloadManager
 
     downloadServerBased: () =>
         input1 = $('<input type="hidden"></input>').attr({name: 'filename', value: @filename})
-        input2 = $('<input type="hidden"></input>').attr({name: 'data', value: @data})
+        # encode our data in base64 so it doesn't get mangled by post (i.e., so '\n' to '\n\r' doesn't happen...)
+        input2 = $('<input type="hidden"></input>').attr({name: 'data', value: btoa(@data)})
         input3 = $('<input type="hidden"></input>').attr({name: 'mimetype', value: @mimetype})
         # target=... is set to our hidden iframe so we don't change the url of our main page
         form = $('<form action="'+@DOWNLOAD_SCRIPT+'" method="post" target="downloads_iframe"></form>')
@@ -197,6 +198,26 @@ $(document).ready ->
     resizeGraph()
     initializeGraphHistory()
     loadExamples()
+
+    # patch pdfkit-www since it contains an error where it doesnt
+    # compute the length of uncompressed streams...
+    window.pdfkit.modules['./reference'].exports.prototype.finalize = (compress=false) ->
+        # cache the finalized stream
+        if @stream
+            data = @stream.join '\n'
+            if compress
+                # create a byte array instead of passing a string to the Buffer
+                # fixes a weird unicode bug.
+                data = new Buffer(data.charCodeAt(i) for i in [0...data.length])
+                compressedData = zlib.deflate(data)
+                @finalizedStream = compressedData.toString 'binary'
+                @data.Filter = 'FlateDecode'
+            else
+                @finalizedStream = data
+            @data.Length ?= @finalizedStream.length
+        else
+            @finalizedStream = ''
+    return
 
 ###
 # Draw the current graph to #svg-preview

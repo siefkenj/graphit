@@ -151,7 +151,7 @@ DownloadManager = (function() {
     });
     input2 = $('<input type="hidden"></input>').attr({
       name: 'data',
-      value: this.data
+      value: btoa(this.data)
     });
     input3 = $('<input type="hidden"></input>').attr({
       name: 'mimetype',
@@ -258,7 +258,34 @@ $(document).ready(function() {
   });
   resizeGraph();
   initializeGraphHistory();
-  return loadExamples();
+  loadExamples();
+  window.pdfkit.modules['./reference'].exports.prototype.finalize = function(compress) {
+    var compressedData, data, i, _base, _ref;
+    if (compress == null) {
+      compress = false;
+    }
+    if (this.stream) {
+      data = this.stream.join('\n');
+      if (compress) {
+        data = new Buffer((function() {
+          var _i, _ref, _results;
+          _results = [];
+          for (i = _i = 0, _ref = data.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+            _results.push(data.charCodeAt(i));
+          }
+          return _results;
+        })());
+        compressedData = zlib.deflate(data);
+        this.finalizedStream = compressedData.toString('binary');
+        this.data.Filter = 'FlateDecode';
+      } else {
+        this.finalizedStream = data;
+      }
+      return (_ref = (_base = this.data).Length) != null ? _ref : _base.Length = this.finalizedStream.length;
+    } else {
+      return this.finalizedStream = '';
+    }
+  };
 });
 
 /*

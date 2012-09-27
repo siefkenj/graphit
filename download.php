@@ -19,6 +19,6 @@
         header("Content-Type: " . $mimetype);
         header("Content-Transfer-Encoding: binary");
 
-        echo $file_contents;
+        echo base64_decode($file_contents);
 ?> 
 
