@@ -1144,7 +1144,7 @@ window.nAsciiSVG = (function() {
     }
   };
   plot = function(func, x_min, x_max, samples) {
-    var f, g, i, inbounds, inc, p, pInBounds, pNext, pPrevious, paths, points, t, toFunc, workingPath, _i, _j, _k, _len, _len1;
+    var f, g, i, inbounds, inc, p, pInBounds, pNext, pPrevious, paths, points, t, threshold, toFunc, workingPath, _i, _j, _k, _len, _len1;
     if (x_min == null) {
       x_min = xmin;
     }
@@ -1169,6 +1169,11 @@ window.nAsciiSVG = (function() {
       }
       return ret;
     };
+    threshold = function(x) {
+      var plotDiameter;
+      plotDiameter = max(1e-6, ymax - ymin, xmax - xmin);
+      return min(max(x, ymin - plotDiameter * 100), ymax + plotDiameter * 100);
+    };
     f = function(x) {
       return x;
     };
@@ -1188,7 +1193,10 @@ window.nAsciiSVG = (function() {
     points = [];
     inc = max(0.0000001, (x_max - x_min) / samples);
     for (t = _i = x_min; x_min <= x_max ? _i <= x_max : _i >= x_max; t = _i += inc) {
-      points.push([f(t), g(t)]);
+      p = [threshold(f(t)), threshold(g(t))];
+      if (isNaN(p[0]) === false && isNaN(p[1]) === false) {
+        points.push(p);
+      }
     }
     inbounds = function(p) {
       if (p[1] > ymin && p[1] < ymax && p[0] > xmin && p[0] < xmax) {

@@ -892,6 +892,12 @@ window.nAsciiSVG = (->
                     throw new Error("Unknown function type '#{func}'")
             return ret
 
+        # values that are too extreme relative to our plot we wan to
+        # round down a bit
+        threshold = (x) ->
+            plotDiameter = max(1e-6, ymax - ymin, xmax - xmin)
+            return min(max(x, ymin - plotDiameter*100), ymax + plotDiameter*100)
+
         f = (x) -> x
         g = null
         switch typeOf(func)
@@ -906,7 +912,10 @@ window.nAsciiSVG = (->
         points = []
         inc = max(0.0000001, (x_max-x_min)/samples)
         for t in [x_min..x_max] by inc
-            points.push [f(t),g(t)]
+            # svg and pdf don't know how to handle points that are too extreme,
+            # so threshold our function values before we actually plot them
+            p = [threshold(f(t)),threshold(g(t))]
+            points.push p if isNaN(p[0]) == false and isNaN(p[1]) == false
 
         # when graphing a function, we ony want to plot
         # the pieces that are on screen, so split the graph up into its
