@@ -50,22 +50,22 @@ Prospective Features
 Here is a list of features and ideas for future versions
 of Graphit.  Hackers welcome!
 
-	* Full documentation for available graphing functions
-	and variables.
-	* Autocompletion support in the code editor
-	* Dynamically increase the sample resolution when graphing
-	functions of high curvature (e.g., pick a lot of sample
-	points around zero for the graph of sin(1/x))
-	* PNG metadata support so you can reload graphs saved as PNG
-	* More, interesting examples to show off different functions
-	* Detection of graphing operations that will take a long time
-	(e.g. if someone sets the bounds from -10000 to 10000 and has
-	gridlines every 1 unit, this will take a really long time,
-	a lot of memory, and won't really show up right, so we should avoid
-	actually doing the exact graph requested...)
-	* General interface improvements: things like keyboard navigation
-	would be nice.
-	* Graph auto-updating: if it's not too computationally intensive,
-	it'd be nice to have the graph auto-update.
-	* Searching and sorting of previously saved graphs and examples
+* Full documentation for available graphing functions
+and variables.
+* Autocompletion support in the code editor
+* Dynamically increase the sample resolution when graphing
+functions of high curvature (e.g., pick a lot of sample
+points around zero for the graph of sin(1/x))
+* PNG metadata support so you can reload graphs saved as PNG
+* More, interesting examples to show off different functions
+* Detection of graphing operations that will take a long time
+(e.g. if someone sets the bounds from -10000 to 10000 and has
+gridlines every 1 unit, this will take a really long time,
+a lot of memory, and won't really show up right, so we should avoid
+actually doing the exact graph requested...)
+* General interface improvements: things like keyboard navigation
+would be nice.
+* Graph auto-updating: if it's not too computationally intensive,
+it'd be nice to have the graph auto-update.
+* Searching and sorting of previously saved graphs and examples
 
