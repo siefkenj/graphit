@@ -4,7 +4,7 @@
 # that are instances of those types.
 */
 
-var DownloadManager, FileHandler, deleteGraphFromGraphData, displayExamples, historyClearAll, historyLoadFromFile, initializeGraphHistory, loadExamples, loadGraph, loadGraphFromGraphData, makeEditable, resizeGraph, round, saveGraph, setGraphFromSvg, typeOf, updateGraph, validateNumber,
+var DownloadManager, FileHandler, deleteGraphFromGraphData, displayExamples, historyClearAll, historyLoadFromFile, initializeGraphHistory, loadDocumentation, loadExamples, loadGraph, loadGraphFromGraphData, makeEditable, resizeGraph, round, saveGraph, setGraphFromSvg, typeOf, updateGraph, validateNumber, wrap,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 typeOf = function(obj) {
@@ -33,6 +33,14 @@ typeOf = function(obj) {
     return 'object';
   }
   return constructorName;
+};
+
+wrap = function(s) {
+  if (typeOf(s) === 'string') {
+    return "'" + s + "'";
+  } else {
+    return s;
+  }
 };
 
 /*
@@ -259,6 +267,12 @@ $(document).ready(function() {
   resizeGraph();
   initializeGraphHistory();
   loadExamples();
+  try {
+    loadDocumentation();
+  } catch (e) {
+    '';
+
+  }
   window.pdfkit.modules['./reference'].exports.prototype.finalize = function(compress) {
     var compressedData, data, i, _base, _ref;
     if (compress == null) {
@@ -287,6 +301,90 @@ $(document).ready(function() {
     }
   };
 });
+
+loadDocumentation = function() {
+  var c, consts, elm, funcs, info, item, m, name, strconsts, target, val, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _m, _results;
+  target = $('#mathfunctions');
+  consts = [];
+  strconsts = [];
+  funcs = [];
+  for (item in MathFunctions) {
+    val = MathFunctions[item];
+    switch (typeOf(val)) {
+      case 'function':
+        funcs.push(item);
+        break;
+      case 'string':
+        strconsts.push(item);
+        break;
+      case 'number':
+        consts.push(item);
+    }
+  }
+  consts.sort();
+  strconsts.sort();
+  funcs.sort();
+  for (_i = 0, _len = strconsts.length; _i < _len; _i++) {
+    name = strconsts[_i];
+    target.append("<li>" + name + " = '" + MathFunctions[name] + "'</li>");
+  }
+  for (_j = 0, _len1 = consts.length; _j < _len1; _j++) {
+    name = consts[_j];
+    target.append("<li>" + name + " &asymp; " + MathFunctions[name] + "</li>");
+  }
+  for (_k = 0, _len2 = funcs.length; _k < _len2; _k++) {
+    name = funcs[_k];
+    target.append("<li>" + name + "()</li>");
+  }
+  target = $('#graphingconstants');
+  consts = (function() {
+    var _results;
+    _results = [];
+    for (c in nAsciiSVG.constants) {
+      _results.push(c);
+    }
+    return _results;
+  })();
+  consts.sort();
+  for (_l = 0, _len3 = consts.length; _l < _len3; _l++) {
+    name = consts[_l];
+    info = nAsciiSVG.constants[name];
+    elm = $("<li><span class='name'>" + name + "</span></li>");
+    if (info["default"]) {
+      elm.append("<span class='default'>" + (wrap(info["default"])) + "</span>");
+    }
+    if (info.type) {
+      elm.append("<span class='type'>" + info.type + "</span>");
+    }
+    if (info.description) {
+      elm.append("<span class='description'>" + info.description + "</span>");
+    }
+    target.append(elm);
+  }
+  target = $('#graphingfunctions');
+  consts = (function() {
+    var _results;
+    _results = [];
+    for (c in nAsciiSVG.functions) {
+      _results.push(c);
+    }
+    return _results;
+  })();
+  consts.sort();
+  _results = [];
+  for (_m = 0, _len4 = consts.length; _m < _len4; _m++) {
+    name = consts[_m];
+    elm = $("<li><span class='name'>" + name + "</span></li>");
+    info = nAsciiSVG[name].toString();
+    m = info.match(/function\s*\((.*)\)/);
+    if (m != null) {
+      info = m[1];
+      elm.append("(" + info + ")");
+    }
+    _results.push(target.append(elm));
+  }
+  return _results;
+};
 
 /*
 # Draw the current graph to #svg-preview
@@ -340,7 +438,7 @@ saveGraph = function(fileName, fileFormat) {
     pdfDoc = new PDFDocument({
       size: [width, height]
     });
-    nAsciiSVG.ctx().playbackTo(pdfDoc, 'pdf');
+    nAsciiSVG.ctx.playbackTo(pdfDoc, 'pdf');
     pdfDoc.info['graphitCode'] = inputArea.getValue();
     pdfRaw = pdfDoc.output();
     window.pdfDoc = pdfDoc;
@@ -348,7 +446,7 @@ saveGraph = function(fileName, fileFormat) {
   } else if (fileFormat === 'png') {
     canvas = $("<canvas width='" + width + "' height='" + height + "'></canvas>")[0];
     ctx = canvas.getContext('2d');
-    nAsciiSVG.ctx().playbackTo(ctx, 'canvas');
+    nAsciiSVG.ctx.playbackTo(ctx, 'canvas');
     data = canvas.toDataURL('image/png');
     data = atob(data.slice('data:image/png;base64,'.length));
     downloadManager = new DownloadManager(fileName, data, 'image/png');

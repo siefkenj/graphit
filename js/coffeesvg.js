@@ -11,7 +11,7 @@
 # that are instances of those types.
 */
 
-var RecordableCanvas, SvgCanvas, typeOf,
+var AsciiSVG, MathFunctions, RecordableCanvas, SourceModifier, SvgCanvas, typeOf,
   __slice = [].slice;
 
 typeOf = window.typeOf || function(obj) {
@@ -620,48 +620,295 @@ RecordableCanvas = (function() {
 
 })();
 
-window.nAsciiSVG = (function() {
-  /*
-      # All the useful math functions
-  */
+/*
+# Class that uses esprima and escodegen
+# to rewrite code. Specifically, it can
+# add foo.lineNumber = <num> markers before
+# each function call, and prefix function
+# calls and variable assignments, e.g.
+# bar() -> foo.bar()
+# bar = 5 -> foo.bar = 5
+*/
 
-  var E, LN10, LN2, LOG10E, LOG2E, PI, SQRT1_2, SQRT2, abs, acos, arccos, arccosh, arccot, arccoth, arccsc, arccsch, arcsec, arcsech, arcsin, arcsinh, arctan, arctanh, arrowhead, asin, atan, atan2, axes, axesstroke, background, border, ceil, circle, cos, cosh, cot, coth, cpi, csc, csch, ctheta, ctx, defaultfontsize, dot, dotradius, e, exp, fill, floor, fontfamily, fontfill, fontsize, fontstroke, fontstyle, fontweight, gridstroke, height, initPicture, line, ln, log, marker, markersize, mathjs, max, min, noaxes, origin, path, pi, plot, pow, random, rect, resetDefaults, round, sec, sech, setBorder, sign, sin, sinh, slopefield, sqrt, stroke, strokewidth, tan, tanh, text, ticklength, toDeviceCoordinates, updatePicture, width, xmax, xmin, xunitlength, ymax, ymin, yunitlength;
-  random = Math.random;
-  tan = Math.tan;
-  min = Math.min;
-  PI = Math.PI;
-  sqrt = Math.sqrt;
-  E = Math.E;
-  SQRT1_2 = Math.SQRT1_2;
-  ceil = Math.ceil;
-  atan2 = Math.atan2;
-  cos = Math.cos;
-  LN2 = Math.LN2;
-  LOG10E = Math.LOG10E;
-  exp = Math.exp;
-  round = function(n, places) {
+
+SourceModifier = (function() {
+  var encloseInBlock;
+
+  encloseInBlock = function(tree) {
+    var newElm;
+    if (tree.type === 'BlockStatement') {
+      return tree;
+    } else {
+      newElm = {
+        type: 'BlockStatement',
+        body: [tree]
+      };
+      return newElm;
+    }
+  };
+
+  function SourceModifier(source) {
+    this.source = source;
+  }
+
+  SourceModifier.prototype.parse = function(str) {
+    var _ref;
+    if (str == null) {
+      str = this.source || '';
+    }
+    this.tree = esprima.parse(str, {
+      loc: true
+    });
+    return _ref = this.walk(this.tree), this.assignments = _ref.assignments, this.calls = _ref.calls, this.blocks = _ref.blocks, _ref;
+  };
+
+  SourceModifier.prototype.generateCode = function() {
+    if (!(this.tree != null)) {
+      throw new Error('You must run parse() before calling generateCode()');
+    }
+    return escodegen.generate(this.tree);
+  };
+
+  SourceModifier.prototype.prefixAssignments = function(val, prefixKeywords, assign) {
+    var a, newNode, _i, _len;
+    if (val == null) {
+      val = 'foo';
+    }
+    if (prefixKeywords == null) {
+      prefixKeywords = null;
+    }
+    if (assign == null) {
+      assign = this.assignments;
+    }
+    for (_i = 0, _len = assign.length; _i < _len; _i++) {
+      a = assign[_i];
+      if (a.type === 'Identifier' && (prefixKeywords === null || a.name in prefixKeywords)) {
+        newNode = {
+          type: 'MemberExpression',
+          object: {
+            type: 'Identifier',
+            name: val
+          },
+          property: a
+        };
+        a.parent.left = newNode;
+      }
+    }
+  };
+
+  SourceModifier.prototype.prefixCalls = function(val, prefixKeywords, calls) {
+    var a, newNode, _i, _len;
+    if (val == null) {
+      val = 'foo';
+    }
+    if (prefixKeywords == null) {
+      prefixKeywords = null;
+    }
+    if (calls == null) {
+      calls = this.calls;
+    }
+    for (_i = 0, _len = calls.length; _i < _len; _i++) {
+      a = calls[_i];
+      if (a.type === 'Identifier' && (prefixKeywords === null || a.name in prefixKeywords)) {
+        newNode = {
+          type: 'MemberExpression',
+          object: {
+            type: 'Identifier',
+            name: val
+          },
+          property: a
+        };
+        a.parent.callee = newNode;
+      }
+    }
+  };
+
+  SourceModifier.prototype.insertLineNumbers = function(val, blocks) {
+    var b, i, newNode, node, _i, _len;
+    if (val == null) {
+      val = 'foo';
+    }
+    if (blocks == null) {
+      blocks = this.blocks;
+    }
+    for (_i = 0, _len = blocks.length; _i < _len; _i++) {
+      b = blocks[_i];
+      i = 0;
+      while (b[i] != null) {
+        node = b[i];
+        if (node.type === 'ExpressionStatement' && node.expression.type === 'CallExpression') {
+          node = node.expression;
+          newNode = {
+            type: 'ExpressionStatement',
+            expression: {
+              type: 'AssignmentExpression',
+              operator: '=',
+              left: {
+                type: 'MemberExpression',
+                object: {
+                  type: 'Identifier',
+                  name: val
+                },
+                property: {
+                  type: 'Identifier',
+                  name: 'lineNumber'
+                }
+              },
+              right: {
+                type: 'Literal',
+                value: node.loc.start.line
+              }
+            }
+          };
+          b.splice(i, 0, newNode);
+          i++;
+        }
+        i++;
+      }
+    }
+  };
+
+  SourceModifier.prototype.walk = function(tree, tracked) {
+    var e, _i, _len;
+    if (tracked == null) {
+      tracked = {
+        assignments: [],
+        calls: [],
+        blocks: []
+      };
+    }
+    if (!(tree != null)) {
+      return;
+    }
+    if (typeOf(tree) === 'array') {
+      for (_i = 0, _len = tree.length; _i < _len; _i++) {
+        e = tree[_i];
+        this.walk(e, tracked);
+      }
+    } else {
+      switch (tree.type) {
+        case 'Program':
+          tracked['blocks'].push(tree.body);
+          this.walk(tree.body, tracked);
+          break;
+        case 'BlockStatement':
+          this.walk(tree.body, tracked);
+          break;
+        case 'ForStatement':
+          tree.body = encloseInBlock(tree.body);
+          tracked['blocks'].push(tree.body.body);
+          this.walk(tree.body, tracked);
+          this.walk(tree.init, tracked);
+          this.walk(tree.test, tracked);
+          this.walk(tree.update, tracked);
+          break;
+        case 'ForInStatement':
+          tree.body = encloseInBlock(tree.body);
+          tracked['blocks'].push(tree.body.body);
+          this.walk(tree.body, tracked);
+          this.walk(tree.left, tracked);
+          this.walk(tree.right, tracked);
+          break;
+        case 'WhileStatement':
+          tree.body = encloseInBlock(tree.body);
+          tracked['blocks'].push(tree.body.body);
+          this.walk(tree.body, tracked);
+          this.walk(tree.test, tracked);
+          break;
+        case 'IfStatement':
+          tree.consequent = encloseInBlock(tree.consequent);
+          tracked['blocks'].push(tree.consequent.body);
+          this.walk(tree.test, tracked);
+          this.walk(tree.consequent, tracked);
+          break;
+        case 'TryStatement':
+          tree.block = encloseInBlock(tree.block);
+          tracked['blocks'].push(tree.block.body);
+          this.walk(tree.block, tracked);
+          this.walk(tree.finalizer, tracked);
+          this.walk(tree.handlers, tracked);
+          break;
+        case 'CatchClause':
+          tree.body = encloseInBlock(tree.body);
+          tracked['blocks'].push(tree.body.body);
+          this.walk(tree.body, tracked);
+          break;
+        case 'FunctionDeclaration':
+        case 'FunctionExpression':
+          tree.body = encloseInBlock(tree.body);
+          tracked['blocks'].push(tree.body.body);
+          this.walk(tree.body, tracked);
+          break;
+        case 'UpdateExpression':
+          this.walk(tree.argument, tracked);
+          break;
+        case 'BinaryExpression':
+          this.walk(tree.left, tracked);
+          this.walk(tree.right, tracked);
+          break;
+        case 'ExpressionStatement':
+          this.walk(tree.expression, tracked);
+          break;
+        case 'CallExpression':
+          tree.callee.parent = tree;
+          tracked['calls'].push(tree.callee);
+          this.walk(tree["arguments"], tracked);
+          break;
+        case 'AssignmentExpression':
+          tree.left.parent = tree;
+          tracked['assignments'].push(tree.left);
+          this.walk(tree.right, tracked);
+      }
+    }
+    return tracked;
+  };
+
+  return SourceModifier;
+
+})();
+
+/*
+# All the useful math functions
+*/
+
+
+MathFunctions = {
+  random: Math.random,
+  tan: Math.tan,
+  min: Math.min,
+  PI: Math.PI,
+  sqrt: Math.sqrt,
+  E: Math.E,
+  SQRT1_2: Math.SQRT1_2,
+  ceil: Math.ceil,
+  atan2: Math.atan2,
+  cos: Math.cos,
+  LN2: Math.LN2,
+  LOG10E: Math.LOG10E,
+  exp: Math.exp,
+  round: function(n, places) {
     var shift;
     shift = Math.pow(10, places);
     return Math.round(n * shift) / shift;
-  };
-  atan = Math.atan;
-  max = Math.max;
-  pow = Math.pow;
-  LOG2E = Math.LOG2E;
-  log = Math.log;
-  LN10 = Math.LN10;
-  floor = Math.floor;
-  SQRT2 = Math.SQRT2;
-  asin = Math.asin;
-  acos = Math.acos;
-  sin = Math.sin;
-  abs = Math.abs;
-  cpi = "\u03C0";
-  ctheta = "\u03B8";
-  pi = Math.PI;
-  ln = Math.log;
-  e = Math.E;
-  sign = function(x) {
+  },
+  atan: Math.atan,
+  max: Math.max,
+  pow: Math.pow,
+  LOG2E: Math.LOG2E,
+  log: Math.log,
+  LN10: Math.LN10,
+  floor: Math.floor,
+  SQRT2: Math.SQRT2,
+  asin: Math.asin,
+  acos: Math.acos,
+  sin: Math.sin,
+  abs: Math.abs,
+  cpi: "\u03C0",
+  ctheta: "\u03B8",
+  pi: Math.PI,
+  ln: Math.log,
+  e: Math.E,
+  sign: function(x) {
     if (x === 0) {
       return 0;
     } else {
@@ -671,155 +918,318 @@ window.nAsciiSVG = (function() {
         return 1;
       }
     }
-  };
-  arcsin = Math.asin;
-  arccos = Math.acos;
-  arctan = Math.atan;
-  sinh = function(x) {
+  },
+  arcsin: Math.asin,
+  arccos: Math.acos,
+  arctan: Math.atan,
+  sinh: function(x) {
     return (Math.exp(x) - Math.exp(-x)) / 2;
-  };
-  cosh = function(x) {
+  },
+  cosh: function(x) {
     return (Math.exp(x) + Math.exp(-x)) / 2;
-  };
-  tanh = function(x) {
+  },
+  tanh: function(x) {
     return (Math.exp(x) - Math.exp(-x)) / (Math.exp(x) + Math.exp(-x));
-  };
-  arcsinh = function(x) {
+  },
+  arcsinh: function(x) {
     return ln(x + Math.sqrt(x * x + 1));
-  };
-  arccosh = function(x) {
+  },
+  arccosh: function(x) {
     return ln(x + Math.sqrt(x * x - 1));
-  };
-  arctanh = function(x) {
+  },
+  arctanh: function(x) {
     return ln((1 + x) / (1 - x)) / 2;
-  };
-  sech = function(x) {
+  },
+  sech: function(x) {
     return 1 / cosh(x);
-  };
-  csch = function(x) {
+  },
+  csch: function(x) {
     return 1 / sinh(x);
-  };
-  coth = function(x) {
+  },
+  coth: function(x) {
     return 1 / tanh(x);
-  };
-  arcsech = function(x) {
+  },
+  arcsech: function(x) {
     return arccosh(1 / x);
-  };
-  arccsch = function(x) {
+  },
+  arccsch: function(x) {
     return arcsinh(1 / x);
-  };
-  arccoth = function(x) {
+  },
+  arccoth: function(x) {
     return arctanh(1 / x);
-  };
-  sec = function(x) {
+  },
+  sec: function(x) {
     return 1 / Math.cos(x);
-  };
-  csc = function(x) {
+  },
+  csc: function(x) {
     return 1 / Math.sin(x);
-  };
-  cot = function(x) {
+  },
+  cot: function(x) {
     return 1 / Math.tan(x);
-  };
-  arcsec = function(x) {
+  },
+  arcsec: function(x) {
     return arccos(1 / x);
-  };
-  arccsc = function(x) {
+  },
+  arccsc: function(x) {
     return arcsin(1 / x);
-  };
-  arccot = function(x) {
+  },
+  arccot: function(x) {
     return arctan(1 / x);
+  }
+};
+
+/*
+# The AsciiSVG object. When asciisvg
+# code is evaled, it is first preparsed and any keyword belonging
+# to the public api is prefixed so that it is actually an attribute
+# access.  For example "plot(...)" would get turned
+# into "api.plot(...)". This is a workaround since we can't define dynamic scope
+# in javascript without using the With statement.  Note, all MathFunctions
+# are added to the api
+#
+# In general, methods starting with _ are for device coordinates
+*/
+
+
+AsciiSVG = (function() {
+  var api, arr, item, mathjs, round;
+
+  arr = [];
+
+  for (item in MathFunctions) {
+    arr.push("" + item + " = MathFunctions." + item);
+  }
+
+  eval("var " + (arr.join(',')));
+
+  round = function(n, places) {
+    var shift;
+    shift = Math.pow(10, places);
+    return Math.round(n * shift) / shift;
   };
-  ctx = null;
-  xmin = -5;
-  xmax = 5;
-  ymin = -5;
-  ymax = 5;
-  border = 0;
-  xunitlength = yunitlength = 1;
-  origin = [0, 0];
-  width = null;
-  height = null;
-  fontsize = null;
-  fontfamily = 'sans';
-  fontstyle = 'normal';
-  fontweight = 'normal';
-  fontfill = 'black';
-  fontstroke = 'none';
-  markersize = 4;
-  marker = null;
-  defaultfontsize = 16;
-  stroke = 'black';
-  strokewidth = 1;
-  background = 'white';
-  gridstroke = '#aaaaaa';
-  fill = 'none';
-  axesstroke = 'black';
-  ticklength = 4;
-  dotradius = 4;
-  resetDefaults = function() {
-    xmin = -5;
-    xmax = 5;
-    ymin = -5;
-    ymax = 5;
-    border = 0;
-    xunitlength = yunitlength = 1;
-    origin = [0, 0];
-    width = null;
-    height = null;
-    fontsize = null;
-    fontfamily = 'sans';
-    fontstyle = 'normal';
-    fontweight = 'normal';
-    fontfill = 'black';
-    fontstroke = 'none';
-    markersize = 4;
-    marker = null;
-    defaultfontsize = 16;
-    stroke = 'black';
-    strokewidth = 1;
-    gridstroke = '#aaaaaa';
-    fill = 'yellow';
-    axesstroke = 'black';
-    return ticklength = 4;
+
+  api = {};
+
+  AsciiSVG.prototype._toDeviceCoordinates = function(p) {
+    return [p[0] * this._xunitlength + this._origin[0], api.height - p[1] * this._yunitlength - this._origin[1]];
   };
-  toDeviceCoordinates = function(p) {
-    return [p[0] * xunitlength + origin[0], height - p[1] * yunitlength - origin[1]];
+
+  AsciiSVG.prototype.constants = {
+    xmin: {
+      "default": -5,
+      type: 'number',
+      description: ''
+    },
+    xmax: {
+      "default": 5,
+      type: 'number',
+      description: ''
+    },
+    ymin: {
+      "default": -5,
+      type: 'number',
+      description: ''
+    },
+    ymax: {
+      "default": 5,
+      type: 'number',
+      description: ''
+    },
+    border: {
+      "default": 0,
+      type: 'number',
+      description: ''
+    },
+    width: {
+      "default": null,
+      type: 'number',
+      description: ''
+    },
+    height: {
+      "default": null,
+      type: 'number',
+      description: ''
+    },
+    fontsize: {
+      "default": null,
+      type: 'number',
+      description: ''
+    },
+    fontfamily: {
+      "default": 'sans',
+      type: 'string',
+      description: ''
+    },
+    fontstyle: {
+      "default": 'normal',
+      type: 'string',
+      description: '',
+      options: ['normal', 'italic']
+    },
+    fontweight: {
+      "default": 'normal',
+      type: 'string',
+      description: '',
+      options: ['normal', 'bold']
+    },
+    fontfill: {
+      "default": 'black',
+      type: 'color',
+      description: ''
+    },
+    fontstroke: {
+      "default": 'none',
+      type: 'color',
+      description: ''
+    },
+    markersize: {
+      "default": 4,
+      type: 'number',
+      description: 'The size of an arrowhead'
+    },
+    marker: {
+      "default": null,
+      type: 'number',
+      description: '',
+      options: ['arrow', 'dot', 'arrowdot']
+    },
+    stroke: {
+      "default": 'black',
+      type: 'color',
+      description: ''
+    },
+    strokewidth: {
+      "default": 1,
+      type: 'number',
+      description: ''
+    },
+    background: {
+      "default": 'white',
+      type: 'color',
+      description: ''
+    },
+    gridstroke: {
+      "default": '#aaaaaa',
+      type: 'color',
+      description: ''
+    },
+    fill: {
+      "default": 'none',
+      type: 'color',
+      description: ''
+    },
+    axesstroke: {
+      "default": 'black',
+      type: 'color',
+      description: ''
+    },
+    ticklength: {
+      "default": 4,
+      type: 'number',
+      description: 'The length of the ticks that mark the units along the axes'
+    },
+    dotradius: {
+      "default": 4,
+      type: 'number',
+      description: ''
+    }
   };
-  updatePicture = function(src, target, renderMode) {
-    var array_raw, canvas, canvas_ctx, id, svgCanvas;
+
+  AsciiSVG.prototype.functions = {
+    initPicture: {},
+    axes: {},
+    plot: {},
+    dot: {},
+    line: {},
+    text: {},
+    setBorder: {
+      description: 'Does nothing; exists for backwards compatibility'
+    },
+    rect: {},
+    circle: {},
+    path: {},
+    slopefield: {}
+  };
+
+  function AsciiSVG() {
+    var val, _ref;
+    api = {};
+    _ref = this.constants;
+    for (item in _ref) {
+      val = _ref[item];
+      api[item] = val["default"];
+    }
+    for (item in this.functions) {
+      api[item] = this[item].bind(this);
+    }
+  }
+
+  AsciiSVG.prototype._xunitlength = 1;
+
+  AsciiSVG.prototype._yunitlength = 1;
+
+  AsciiSVG.prototype._origin = [0, 0];
+
+  AsciiSVG.prototype._resetDefaults = function() {
+    var val, _ref, _results;
+    this._xunitlength = 1;
+    this._yunitlength = 1;
+    _ref = this.constants;
+    _results = [];
+    for (item in _ref) {
+      val = _ref[item];
+      _results.push(api[item] = val["default"]);
+    }
+    return _results;
+  };
+
+  AsciiSVG.prototype.getApi = function() {
+    return api;
+  };
+
+  AsciiSVG.prototype.updatePicture = function(src, target, renderMode) {
+    var array_raw, canvas, canvas_ctx, id, source, svgCanvas;
+    if (src == null) {
+      src = this.src;
+    }
     if (renderMode == null) {
       renderMode = 'svg';
     }
-    resetDefaults();
+    this._resetDefaults();
     if (typeOf(target) === 'string') {
       target = document.getElementById(target);
     }
-    width = parseInt(target.getAttribute('width'));
-    height = parseInt(target.getAttribute('height'));
+    api.width = parseInt(target.getAttribute('width'));
+    api.height = parseInt(target.getAttribute('height'));
     id = target.getAttribute('id');
-    ctx = new RecordableCanvas(width, height);
-    initPicture();
+    this.ctx = new RecordableCanvas(api.width, api.height);
+    this.initPicture();
     array_raw = src;
     array_raw = array_raw.replace(/plot\(\x20*([^\"f\[][^\n\r]+?)\,/g, "plot\(\"$1\",");
     array_raw = array_raw.replace(/plot\(\x20*([^\"f\[][^\n\r]+)\)/g, "plot(\"$1\")");
     array_raw = array_raw.replace(/([0-9])([a-zA-Z])/g, "$1*$2");
     array_raw = array_raw.replace(/\)([\(0-9a-zA-Z])/g, "\)*$1");
-    eval(array_raw);
+    source = new SourceModifier(array_raw);
+    source.parse();
+    source.prefixAssignments('api', api);
+    source.prefixCalls('api', api);
+    eval(source.generateCode());
     switch (renderMode) {
       case 'canvas':
-        canvas = $("<canvas width='" + width + "' height='" + height + "' id='" + id + "' />")[0];
+        canvas = $("<canvas width='" + api.width + "' height='" + api.height + "' id='" + id + "' />")[0];
         canvas_ctx = canvas.getContext('2d');
-        ctx.playbackTo(canvas_ctx, 'canvas');
+        this.ctx.playbackTo(canvas_ctx, 'canvas');
         target.parentNode.replaceChild(canvas, target);
         break;
       case 'svg':
-        svgCanvas = new SvgCanvas(width, height);
-        ctx.playbackTo(svgCanvas, 'svg');
+        svgCanvas = new SvgCanvas(api.width, api.height);
+        this.ctx.playbackTo(svgCanvas, 'svg');
         svgCanvas._root.setAttribute('id', id);
         target.parentNode.replaceChild(svgCanvas._root, target);
     }
   };
-  initPicture = function(x_min, x_max, y_min, y_max) {
+
+  AsciiSVG.prototype.initPicture = function(x_min, x_max, y_min, y_max) {
     if (y_min == null) {
       y_min = x_min;
     }
@@ -827,28 +1237,29 @@ window.nAsciiSVG = (function() {
       y_max = x_max;
     }
     if (x_min != null) {
-      xmin = x_min;
+      api.xmin = x_min;
     }
     if (x_max != null) {
-      xmax = x_max;
+      api.xmax = x_max;
     }
     if (y_min != null) {
-      ymin = y_min;
+      api.ymin = y_min;
     }
     if (y_max != null) {
-      ymax = y_max;
+      api.ymax = y_max;
     }
-    if (xmin >= xmax || ymin >= ymax) {
-      throw new Error("Dimensions [" + [xmin, xmax, ymin, ymax] + "] are not valid");
+    if (api.xmin >= api.xmax || api.ymin >= api.ymax) {
+      throw new Error("Dimensions [" + [api.xmin, api.xmax, api.ymin, api.ymax] + "] are not valid");
     }
-    xunitlength = (width - 2 * border) / (xmax - xmin);
-    yunitlength = (height - 2 * border) / (ymax - ymin);
-    origin = [-xmin * xunitlength + border, -ymin * yunitlength + border];
-    ctx.width = width;
-    ctx.height = height;
-    return noaxes();
+    this._xunitlength = (api.width - 2 * api.border) / (api.xmax - api.xmin);
+    this._yunitlength = (api.height - 2 * api.border) / (api.ymax - api.ymin);
+    this._origin = [-api.xmin * this._xunitlength + api.border, -api.ymin * this._yunitlength + api.border];
+    this.ctx.width = api.width;
+    this.ctx.height = api.height;
+    return this._noaxes();
   };
-  text = function(pos, str, textanchor, angle, padding) {
+
+  AsciiSVG.prototype.text = function(pos, str, textanchor, angle, padding) {
     var computed_fontsize, p, padding_x, padding_y;
     if (textanchor == null) {
       textanchor = 'center';
@@ -859,11 +1270,11 @@ window.nAsciiSVG = (function() {
     if (padding == null) {
       padding = 4;
     }
-    computed_fontsize = fontsize || defaultfontsize;
-    p = toDeviceCoordinates(pos);
+    computed_fontsize = api.fontsize || constants.fontsize["default"];
+    p = this._toDeviceCoordinates(pos);
     if (angle !== 0) {
       throw new Error('rotations not yet supported');
-      ctx.rotate(angle / (2 * pi));
+      this.ctx.rotate(angle / (2 * pi));
     }
     padding_x = 0;
     padding_y = 0;
@@ -883,273 +1294,255 @@ window.nAsciiSVG = (function() {
     if (textanchor.match('below')) {
       padding_y += padding;
     }
-    ctx.font = "" + fontstyle + " " + fontweight + " " + computed_fontsize + "px " + fontfamily;
-    ctx.fontFamily = fontfamily;
-    ctx.fontSize = computed_fontsize;
-    ctx.fontWeight = fontweight;
-    ctx.fontStyle = fontstyle;
-    ctx.fillStyle = fontfill;
-    ctx.text(str, p[0] + padding_x, p[1] + padding_y, textanchor);
+    this.ctx.font = "" + api.fontstyle + " " + api.fontweight + " " + computed_fontsize + "px " + api.fontfamily;
+    this.ctx.fontFamily = api.fontfamily;
+    this.ctx.fontSize = computed_fontsize;
+    this.ctx.fontWeight = api.fontweight;
+    this.ctx.fontStyle = api.fontstyle;
+    this.ctx.fillStyle = api.fontfill;
+    this.ctx.text(str, p[0] + padding_x, p[1] + padding_y, textanchor);
     return pos;
   };
-  setBorder = function(width, color) {
-    if (width != null) {
-      border = width;
-    }
-    if (color != null) {
-      return stroke = color;
-    }
-  };
-  noaxes = function() {
-    ctx.fillStyle = background;
-    return ctx.fillRect(0, 0, width, height);
-  };
-  axes = function(dx, dy, labels, griddx, griddy, units) {
+
+  AsciiSVG.prototype.setBorder = function() {};
+
+  AsciiSVG.prototype.axes = function(dx, dy, labels, griddx, griddy, units) {
     var labeldecimals_x, labeldecimals_y, labelplacement_x, labelplacement_y, labelposition_x, labelposition_y, p, padding, tickdx, tickdy, x, xunits, y, yunits;
-    tickdx = dx != null ? dx * xunitlength : xunitlength;
-    tickdy = dy != null ? dy * yunitlength : yunitlength;
-    fontsize = fontsize || min(tickdx / 2, tickdy / 2, 16);
+    tickdx = dx != null ? dx * this._xunitlength : this._xunitlength;
+    tickdy = dy != null ? dy * this._yunitlength : this._yunitlength;
+    api.fontsize = api.fontsize || min(tickdx / 2, tickdy / 2, 16);
     if (typeOf(griddx) === 'number' && griddy === void 0) {
       griddy = griddx;
     }
     if ((griddx != null) || (griddy != null)) {
-      ctx.beginPath();
-      ctx.strokeStyle = gridstroke;
-      ctx.lineWidth = 0.5;
-      ctx.fillStyle = fill;
+      this.ctx.beginPath();
+      this.ctx.strokeStyle = api.gridstroke;
+      this.ctx.lineWidth = 0.5;
+      this.ctx.fillStyle = api.fill;
       if ((griddx != null) && griddx > 0) {
-        x = ceil(xmin / griddx) * griddx;
-        while (x < xmax) {
-          p = toDeviceCoordinates([x, 0]);
-          ctx.moveTo(p[0], 0);
-          ctx.lineTo(p[0], height);
+        x = MathFunctions.ceil(api.xmin / griddx) * griddx;
+        while (x < api.xmax) {
+          p = this._toDeviceCoordinates([x, 0]);
+          this.ctx.moveTo(p[0], 0);
+          this.ctx.lineTo(p[0], api.height);
           x += griddx;
         }
       }
       if ((griddy != null) && griddy > 0) {
-        y = ceil(ymin / griddy) * griddy;
-        while (y < ymax) {
-          p = toDeviceCoordinates([0, y]);
-          ctx.moveTo(0, p[1]);
-          ctx.lineTo(width, p[1]);
+        y = MathFunctions.ceil(api.ymin / griddy) * griddy;
+        while (y < api.ymax) {
+          p = this._toDeviceCoordinates([0, y]);
+          this.ctx.moveTo(0, p[1]);
+          this.ctx.lineTo(api.width, p[1]);
           y += griddy;
         }
       }
-      ctx.stroke();
+      this.ctx.stroke();
     }
     if ((dx != null) || (dy != null)) {
-      ctx.beginPath();
-      ctx.strokeStyle = axesstroke;
-      ctx.fillStyle = fill;
-      ctx.lineWidth = 1;
-      p = toDeviceCoordinates([0, 0]);
-      ctx.moveTo(0, p[1]);
-      ctx.lineTo(width, p[1]);
-      ctx.moveTo(p[0], 0);
-      ctx.lineTo(p[0], height);
+      this.ctx.beginPath();
+      this.ctx.strokeStyle = api.axesstroke;
+      this.ctx.fillStyle = api.fill;
+      this.ctx.lineWidth = 1;
+      p = this._toDeviceCoordinates([0, 0]);
+      this.ctx.moveTo(0, p[1]);
+      this.ctx.lineTo(api.width, p[1]);
+      this.ctx.moveTo(p[0], 0);
+      this.ctx.lineTo(p[0], api.height);
       if ((dx != null) && dx > 0) {
-        x = ceil(xmin / dx) * dx;
-        while (x < xmax) {
+        x = MathFunctions.ceil(api.xmin / dx) * dx;
+        while (x < api.xmax) {
           if (x === 0) {
             x += dx;
           }
-          p = toDeviceCoordinates([x, 0]);
-          ctx.moveTo(p[0], p[1] - ticklength);
-          ctx.lineTo(p[0], p[1] + ticklength);
+          p = this._toDeviceCoordinates([x, 0]);
+          this.ctx.moveTo(p[0], p[1] - api.ticklength);
+          this.ctx.lineTo(p[0], p[1] + api.ticklength);
           x += dx;
         }
       }
       if ((dy != null) && dy > 0) {
-        y = ceil(ymin / dy) * dy;
-        while (y < ymax) {
+        y = MathFunctions.ceil(api.ymin / dy) * dy;
+        while (y < api.ymax) {
           if (y === 0) {
             y += dy;
           }
-          p = toDeviceCoordinates([0, y]);
-          ctx.moveTo(p[0] - ticklength, p[1]);
-          ctx.lineTo(p[0] + ticklength, p[1]);
+          p = this._toDeviceCoordinates([0, y]);
+          this.ctx.moveTo(p[0] - api.ticklength, p[1]);
+          this.ctx.lineTo(p[0] + api.ticklength, p[1]);
           y += dy;
         }
       }
-      ctx.stroke();
+      this.ctx.stroke();
     }
     if (labels != null) {
       xunits = yunits = '';
-      labeldecimals_x = floor(1.1 - log(dx)) + 1;
-      labeldecimals_y = floor(1.1 - log(dy)) + 1;
-      padding = 2 * ticklength / yunitlength;
-      labelposition_x = ymin > 0 || ymax < 0 ? ymin + padding : -padding;
-      padding = 2 * ticklength / xunitlength;
-      labelposition_y = xmin > 0 || xmax < 0 ? xmin + padding : -padding;
-      labelplacement_x = ymin > 0 || ymax < 0 ? 'above' : 'below';
-      labelplacement_y = xmin > 0 || xmax < 0 ? 'right' : 'left';
-      x = ceil(xmin / dx) * dx;
-      while (x < xmax) {
+      labeldecimals_x = Math.floor(1.1 - Math.log(dx)) + 1;
+      labeldecimals_y = Math.floor(1.1 - Math.log(dy)) + 1;
+      padding = 2 * api.ticklength / this._yunitlength;
+      labelposition_x = api.ymin > 0 || api.ymax < 0 ? api.ymin + padding : -padding;
+      padding = 2 * api.ticklength / this._xunitlength;
+      labelposition_y = api.xmin > 0 || api.xmax < 0 ? api.xmin + padding : -padding;
+      labelplacement_x = api.ymin > 0 || api.ymax < 0 ? 'above' : 'below';
+      labelplacement_y = api.xmin > 0 || api.xmax < 0 ? 'right' : 'left';
+      x = Math.ceil(api.xmin / dx) * dx;
+      while (x < api.xmax) {
         if (x === 0) {
           x += dx;
         }
-        text([x, labelposition_x], "" + (round(x, labeldecimals_x)) + xunits, labelplacement_x);
+        this.text([x, labelposition_x], "" + (round(x, labeldecimals_x)) + xunits, labelplacement_x);
         x += dx;
       }
-      y = ceil(ymin / dy) * dy;
-      while (y < ymax) {
+      y = Math.ceil(api.ymin / dy) * dy;
+      while (y < api.ymax) {
         if (y === 0) {
           y += dy;
         }
-        text([labelposition_y, y], "" + (round(y, labeldecimals_y)) + yunits, labelplacement_y);
+        this.text([labelposition_y, y], "" + (round(y, labeldecimals_y)) + yunits, labelplacement_y);
         y += dy;
       }
     }
   };
-  rect = function(corner1, corner2) {
-    corner1 = toDeviceCoordinates(corner1);
-    corner2 = toDeviceCoordinates(corner2);
-    ctx.beginPath();
-    ctx.moveTo(corner1[0], corner1[1]);
-    ctx.lineTo(corner1[0], corner2[1]);
-    ctx.lineTo(corner2[0], corner2[1]);
-    ctx.lineTo(corner2[0], corner1[1]);
-    ctx.closePath();
-    ctx.fillStyle = fill;
-    ctx.strokeStyle = stroke;
-    if ((fill != null) && fill !== 'none') {
-      return ctx.fillAndStroke();
+
+  AsciiSVG.prototype._noaxes = function() {
+    this.ctx.fillStyle = api.background;
+    this.ctx.fillRect(0, 0, api.width, api.height);
+  };
+
+  AsciiSVG.prototype.rect = function(corner1, corner2) {
+    this._rect(this._toDeviceCoordinates(corner1), this._toDeviceCoordinates(corner2));
+  };
+
+  AsciiSVG.prototype._rect = function(corner1, corner2) {
+    this.ctx.beginPath();
+    this.ctx.moveTo(corner1[0], corner1[1]);
+    this.ctx.lineTo(corner1[0], corner2[1]);
+    this.ctx.lineTo(corner2[0], corner2[1]);
+    this.ctx.lineTo(corner2[0], corner1[1]);
+    this.ctx.closePath();
+    this.ctx.fillStyle = api.fill;
+    this.ctx.strokeStyle = api.stroke;
+    if ((api.fill != null) && api.fill !== 'none') {
+      this.ctx.fillAndStroke();
     } else {
-      return ctx.stroke();
+      this.ctx.stroke();
     }
   };
-  circle = function(center, radius, filled) {
+
+  AsciiSVG.prototype.circle = function(center, radius, filled) {
     var p;
     if (filled == null) {
       filled = false;
     }
-    p = toDeviceCoordinates(center);
-    radius = radius * xunitlength;
-    ctx.beginPath();
-    ctx.lineWidth = strokewidth;
-    ctx.strokeStyle = stroke;
-    ctx.fillStyle = fill;
-    ctx.circle(p[0], p[1], radius);
+    p = this._toDeviceCoordinates(center);
+    radius = radius * this._xunitlength;
+    this.ctx.beginPath();
+    this.ctx.lineWidth = api.strokewidth;
+    this.ctx.strokeStyle = api.stroke;
+    this.ctx.fillStyle = api.fill;
+    this.ctx.circle(p[0], p[1], radius);
     if (filled) {
-      ctx.fillAndStroke();
+      this.ctx.fillAndStroke();
     } else {
-      ctx.stroke();
+      this.ctx.stroke();
     }
   };
-  dot = function(center, type, label, textanchor, angle) {
+
+  AsciiSVG.prototype.dot = function(center, type, label, textanchor, angle) {
     var p, prevFill;
     if (textanchor == null) {
       textanchor = 'below';
     }
-    p = toDeviceCoordinates(center);
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = strokewidth;
+    p = this._toDeviceCoordinates(center);
+    this.ctx.strokeStyle = api.stroke;
+    this.ctx.lineWidth = api.strokewidth;
     switch (type) {
       case '+':
-        ctx.beginPath();
-        ctx.moveTo(p[0] - ticklength, p[1]);
-        ctx.lineTo(p[0] + ticklength, p[1]);
-        ctx.moveTo(p[0], p[1] - ticklength);
-        ctx.lineTo(p[0], p[1] + ticklength);
-        ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.moveTo(p[0] - api.ticklength, p[1]);
+        this.ctx.lineTo(p[0] + api.ticklength, p[1]);
+        this.ctx.moveTo(p[0], p[1] - api.ticklength);
+        this.ctx.lineTo(p[0], p[1] + api.ticklength);
+        this.ctx.stroke();
         break;
       case '-':
-        ctx.beginPath();
-        ctx.moveTo(p[0] - ticklength, p[1]);
-        ctx.lineTo(p[0] + ticklength, p[1]);
-        ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.moveTo(p[0] - api.ticklength, p[1]);
+        this.ctx.lineTo(p[0] + api.ticklength, p[1]);
+        this.ctx.stroke();
         break;
       case '|':
-        ctx.beginPath();
-        ctx.moveTo(p[0], p[1] - ticklength);
-        ctx.lineTo(p[0], p[1] + ticklength);
-        ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.moveTo(p[0], p[1] - api.ticklength);
+        this.ctx.lineTo(p[0], p[1] + api.ticklength);
+        this.ctx.stroke();
         break;
       default:
-        prevFill = fill;
+        prevFill = api.fill;
         if (type != null ? type.match('open') : void 0) {
-          fill = background;
+          api.fill = api.background;
         } else if (type != null ? type.match('closed') : void 0) {
-          fill = stroke;
+          api.fill = api.stroke;
         }
-        circle(center, dotradius / xunitlength, true);
-        fill = prevFill;
+        this.circle(center, api.dotradius / this._xunitlength, true);
+        api.fill = prevFill;
     }
     if (label != null) {
-      return text(center, label, textanchor, angle, dotradius + 1);
+      this.text(center, label, textanchor, angle, api.dotradius + 1);
     }
   };
-  arrowhead = function(p, q, size) {
-    var d, u, uperp;
-    if (size == null) {
-      size = markersize;
-    }
-    p = toDeviceCoordinates(p);
-    q = toDeviceCoordinates(q);
-    u = [p[0] - q[0], p[1] - q[1]];
-    d = Math.sqrt(u[0] * u[0] + u[1] * u[1]);
-    if (d > 1e-7) {
-      u = [-u[0] / d, -u[1] / d];
-      uperp = [-u[1], u[0]];
-      ctx.lineWidth = size;
-      ctx.strokeStyle = stroke;
-      ctx.fillStyle = stroke;
-      ctx.beginPath();
-      ctx.moveTo(q[0] - 15 * u[0] - 4 * uperp[0], q[1] - 15 * u[1] - 4 * uperp[1]);
-      ctx.lineTo(q[0] - 3 * u[0], q[1] - 3 * u[1]);
-      ctx.lineTo(q[0] - 15 * u[0] + 4 * uperp[0], q[1] - 15 * u[1] + 4 * uperp[1]);
-      ctx.closePath();
-      ctx.fillAndStroke();
-    }
-  };
-  line = function(p, q) {
-    var u, v;
-    u = toDeviceCoordinates(p);
-    v = toDeviceCoordinates(q);
-    ctx.beginPath();
-    ctx.lineWidth = strokewidth;
-    ctx.strokeStyle = stroke;
-    ctx.fillStyle = fill;
-    ctx.moveTo(u[0], u[1]);
-    ctx.lineTo(v[0], v[1]);
-    ctx.stroke();
-    if (marker === 'dot' || marker === 'arrowdot') {
-      dot(p);
-      if (marker === 'arrowdot') {
-        arrowhead(p, q);
+
+  AsciiSVG.prototype.line = function(start, end) {
+    var _ref;
+    this.ctx.lineWidth = api.strokewidth;
+    this.ctx.strokeStyle = api.stroke;
+    this._line(this._toDeviceCoordinates(start), this._toDeviceCoordinates(end));
+    if ((_ref = api.marker) === 'dot' || _ref === 'arrowdot') {
+      this.dot(start);
+      if (api.marker === 'arrowdot') {
+        this.arrowhead(start, end);
       }
-      return dot(q);
+      this.dot(start);
     }
   };
-  path = function(plist) {
-    var p, _i, _j, _len, _len1, _ref;
-    p = toDeviceCoordinates(plist[0]);
-    ctx.beginPath();
-    ctx.lineWidth = strokewidth;
-    ctx.strokeStyle = stroke;
-    ctx.fillStyle = fill;
-    ctx.moveTo(p[0], p[1]);
+
+  AsciiSVG.prototype._line = function(start, end) {
+    this.ctx.beginPath();
+    this.ctx.moveTo(start[0], start[1]);
+    this.ctx.lineTo(end[0], end[1]);
+    this.ctx.stroke();
+  };
+
+  AsciiSVG.prototype.path = function(plist) {
+    var p, _i, _j, _len, _len1, _ref, _ref1;
+    p = this._toDeviceCoordinates(plist[0]);
+    this.ctx.beginPath();
+    this.ctx.lineWidth = api.strokewidth;
+    this.ctx.strokeStyle = api.stroke;
+    this.ctx.fillStyle = api.fill;
+    this.ctx.moveTo(p[0], p[1]);
     _ref = plist.slice(1);
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       p = _ref[_i];
-      p = toDeviceCoordinates(p);
-      ctx.lineTo(p[0], p[1]);
+      p = this._toDeviceCoordinates(p);
+      this.ctx.lineTo(p[0], p[1]);
     }
-    ctx.stroke();
-    if (marker === 'dot' || marker === 'arrowdot') {
+    this.ctx.stroke();
+    if ((_ref1 = api.marker) === 'dot' || _ref1 === 'arrowdot') {
       for (_j = 0, _len1 = plist.length; _j < _len1; _j++) {
         p = plist[_j];
-        dot(p);
+        this.dot(p);
       }
     }
   };
-  plot = function(func, x_min, x_max, samples) {
+
+  AsciiSVG.prototype.plot = function(func, x_min, x_max, samples) {
     var f, g, i, inbounds, inc, p, pInBounds, pNext, pPrevious, paths, points, t, threshold, toFunc, workingPath, _i, _j, _k, _len, _len1;
     if (x_min == null) {
-      x_min = xmin;
+      x_min = api.xmin;
     }
     if (x_max == null) {
-      x_max = xmax;
+      x_max = api.xmax;
     }
     if (samples == null) {
       samples = 200;
@@ -1171,8 +1564,8 @@ window.nAsciiSVG = (function() {
     };
     threshold = function(x) {
       var plotDiameter;
-      plotDiameter = max(1e-6, ymax - ymin, xmax - xmin);
-      return min(max(x, ymin - plotDiameter * 100), ymax + plotDiameter * 100);
+      plotDiameter = Math.max(1e-6, api.ymax - api.ymin, api.xmax - api.xmin);
+      return Math.min(Math.max(x, api.ymin - plotDiameter * 100), api.ymax + plotDiameter * 100);
     };
     f = function(x) {
       return x;
@@ -1191,7 +1584,7 @@ window.nAsciiSVG = (function() {
         throw new Error("Unknown function type '" + func + "'");
     }
     points = [];
-    inc = max(0.0000001, (x_max - x_min) / samples);
+    inc = Math.max(0.0000001, (x_max - x_min) / samples);
     for (t = _i = x_min; x_min <= x_max ? _i <= x_max : _i >= x_max; t = _i += inc) {
       p = [threshold(f(t)), threshold(g(t))];
       if (isNaN(p[0]) === false && isNaN(p[1]) === false) {
@@ -1199,7 +1592,7 @@ window.nAsciiSVG = (function() {
       }
     }
     inbounds = function(p) {
-      if (p[1] > ymin && p[1] < ymax && p[0] > xmin && p[0] < xmax) {
+      if (p[1] > api.ymin && p[1] < api.ymax && p[0] > api.xmin && p[0] < api.xmax) {
         return true;
       }
       return false;
@@ -1227,12 +1620,13 @@ window.nAsciiSVG = (function() {
     for (_k = 0, _len1 = paths.length; _k < _len1; _k++) {
       p = paths[_k];
       if (p.length > 0) {
-        path(p);
+        this.path(p);
       }
     }
   };
-  slopefield = function(func, dx, dy) {
-    var dz, g, gxy, l, pointList, u, v, x, x_min, y, y_min, _i, _j, _k, _len;
+
+  AsciiSVG.prototype.slopefield = function(func, dx, dy) {
+    var dz, g, gxy, l, pointList, u, v, x, x_min, y, y_min, _i, _j, _k, _len, _ref, _ref1;
     if (dx == null) {
       dx = 1;
     }
@@ -1244,11 +1638,11 @@ window.nAsciiSVG = (function() {
       eval("g = function(x,y){ return " + (mathjs(func)) + " }");
     }
     dz = sqrt(dx * dx + dy * dy) / 4;
-    x_min = ceil(xmin / dx) * dx;
-    y_min = ceil(ymin / dy) * dy;
+    x_min = Math.ceil(api.xmin / dx) * dx;
+    y_min = Math.ceil(api.ymin / dy) * dy;
     pointList = [];
-    for (x = _i = x_min; x_min <= xmax ? _i <= xmax : _i >= xmax; x = _i += dx) {
-      for (y = _j = y_min; y_min <= ymax ? _j <= ymax : _j >= ymax; y = _j += dy) {
+    for (x = _i = x_min, _ref = api.xmax; x_min <= _ref ? _i <= _ref : _i >= _ref; x = _i += dx) {
+      for (y = _j = y_min, _ref1 = api.ymax; y_min <= _ref1 ? _j <= _ref1 : _j >= _ref1; y = _j += dy) {
         gxy = g(x, y);
         if (!isNaN(gxy)) {
           if (abs(gxy) === Infinity) {
@@ -1258,7 +1652,7 @@ window.nAsciiSVG = (function() {
             u = dz / sqrt(1 + gxy * gxy);
             v = gxy * u;
           }
-          if ((xmin <= x && x <= xmax) && (ymin <= y && y <= ymax)) {
+          if ((api.xmin <= x && x <= api.xmax) && (api.ymin <= y && y <= api.ymax)) {
             pointList.push([[x - u, y - v], [x + u, y + v]]);
           }
         }
@@ -1266,9 +1660,36 @@ window.nAsciiSVG = (function() {
     }
     for (_k = 0, _len = pointList.length; _k < _len; _k++) {
       l = pointList[_k];
-      line(l[0], l[1]);
+      this.line(l[0], l[1]);
     }
   };
+
+  AsciiSVG.prototype.arrowhead = function(p, q, size) {
+    if (size == null) {
+      size = api.markersize;
+    }
+    return this._arrowhead(this._toDeviceCoordinates(p), this._toDeviceCoordinates(q), size);
+  };
+
+  AsciiSVG.prototype._arrowhead = function(p, q, size) {
+    var d, u, uperp;
+    u = [p[0] - q[0], p[1] - q[1]];
+    d = Math.sqrt(u[0] * u[0] + u[1] * u[1]);
+    if (d > 1e-7) {
+      u = [-u[0] / d, -u[1] / d];
+      uperp = [-u[1], u[0]];
+      this.ctx.lineWidth = size;
+      this.ctx.strokeStyle = api.stroke;
+      this.ctx.fillStyle = api.stroke;
+      this.ctx.beginPath();
+      this.ctx.moveTo(q[0] - 15 * u[0] - 4 * uperp[0], q[1] - 15 * u[1] - 4 * uperp[1]);
+      this.ctx.lineTo(q[0] - 3 * u[0], q[1] - 3 * u[1]);
+      this.ctx.lineTo(q[0] - 15 * u[0] + 4 * uperp[0], q[1] - 15 * u[1] + 4 * uperp[1]);
+      this.ctx.closePath();
+      this.ctx.fillAndStroke();
+    }
+  };
+
   mathjs = function(st) {
     var ch, i, j, k, nested;
     st = st.replace(/\s/g, "");
@@ -1424,13 +1845,9 @@ window.nAsciiSVG = (function() {
     }
     return st;
   };
-  return {
-    updatePicture: updatePicture,
-    initPicture: initPicture,
-    ctx: (function() {
-      return ctx;
-    }),
-    axes: axes,
-    plot: plot
-  };
+
+  return AsciiSVG;
+
 })();
+
+window.nAsciiSVG = new AsciiSVG;

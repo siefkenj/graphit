@@ -22,8 +22,12 @@
 	<script type="text/javascript" src="jquery/js/jquery.json-2.3.js"></script>
 	<script type="text/javascript" src="jquery/js/jstorage.js"></script>
 
-	<!-- pdf support -->
+	<!-- pdf support.  Must be loaded before interface.js as interface.js hotpatches the pdf support. -->
 	<script src="js/pdfkit-0.1-allfonts.min.js"></script>
+
+	<!-- esprima javascript code parser -->
+	<script src="js/esprima.js"></script>
+	<script src="js/escodegen.js"></script>
 
 	<!-- graphit includes -->
 	<script src="js/interface.js"></script>
@@ -51,6 +55,7 @@
 			<li><a href='#graph'>Graph</a></li>
 			<li><a href='#examples'>Examples</a></li>
 			<li><a href='#help'>Help</a></li>
+			<li><a href='#documentation'>Documentation</a></li>
 		</ul>
 		<div id='graph'>
 			<div class='work-area clearfix'>
@@ -193,6 +198,171 @@ plot("x^2/4")
 		parameter, since it would then be a local variable and have no affect
 		on graphing commands.
 		</p>
+		</div>
+		<div id='documentation'>
+			<h3>Math Functions and Constants</h3>
+			<ul id='mathfunctions'>
+			</ul>
+			<h3>Graphing Variables</h3>
+			These variables affect how things on your plot are drawn
+			<ul id='graphingconstants'>
+			</ul>
+			<h3>Graphing Functions</h3>
+			These functions allow you to draw on your graph
+			<ul id='graphingfunctions'>
+			</ul>
+			<h3>Colors</h3>
+			Colors can be specified in two ways: a predefined color name or a
+			hexadecimal color number prefixed with the '#' symbol.
+			Either way, a color must be specified in quotes.  Hexadecimal
+			colors take the form <code>#rrggbb</code> or <code>#rgb</code>
+			where <code>r</code>, <code>g</code>, <code>b</code>
+			are red, green, blue respectively taking values from 0 to 255
+			for the two-digit-per-color case and 0-15 for the one-digit-per-color
+			case.
+			<ul id='colors'>
+				<!-- Colour Table (http://www.spacetoday.org/BoilerRoom/Colors.html) -->
+				<li style='background: black;'>black</li>
+				<li style='background: navy;'>navy</li>
+				<li style='background: darkgreen;'>darkgreen</li>
+				<li style='background: green;'>green</li>
+				<li style='background: teal;'>teal</li>
+				<li style='background: royalblue;'>royalblue</li>
+				<li style='background: midnightblue;'>midnightblue</li>
+				<li style='background: dimgray;'>dimgray</li>
+				<li style='background: slategray;'>slategray</li>
+				<li style='background: lightslategray;'>lightslategray</li>
+				<li style='background: maroon;'>maroon</li>
+				<li style='background: purple;'>purple</li>
+				<li style='background: olive;'>olive</li>
+				<li style='background: gray;'>gray</li>
+				<li style='background: darkblue;'>darkblue</li>
+				<li style='background: mediumblue;'>mediumblue</li>
+				<li style='background: blue;'>blue</li>
+				<li style='background: darkcyan;'>darkcyan</li>
+				<li style='background: deepskyblue;'>deepskyblue</li>
+				<li style='background: darkturquoise;'>darkturquoise</li>
+				<li style='background: mediumspringgreen;'>mediumspringgreen</li>
+				<li style='background: lime;'>lime</li>
+				<li style='background: springgreen;'>springgreen</li>
+				<li style='background: aqua;'>aqua</li>
+				<li style='background: cyan;'>cyan</li>
+				<li style='background: dodgerblue;'>dodgerblue</li>
+				<li style='background: lightseagreen;'>lightseagreen</li>
+				<li style='background: forestgreen;'>forestgreen</li>
+				<li style='background: seagreen;'>seagreen</li>
+				<li style='background: darkslategray;'>darkslategray</li>
+				<li style='background: limegreen;'>limegreen</li>
+				<li style='background: mediumseagreen;'>mediumseagreen</li>
+				<li style='background: turquoise;'>turquoise</li>
+				<li style='background: steelblue;'>steelblue</li>
+				<li style='background: darkslateblue;'>darkslateblue</li>
+				<li style='background: mediumturquoise;'>mediumturquoise</li>
+				<li style='background: indigo;'>indigo</li>
+				<li style='background: darkolivegreen;'>darkolivegreen</li>
+				<li style='background: cadetblue;'>cadetblue</li>
+				<li style='background: cornflowerblue;'>cornflowerblue</li>
+				<li style='background: mediumaquamarine;'>mediumaquamarine</li>
+				<li style='background: slateblue;'>slateblue</li>
+				<li style='background: olivedrab;'>olivedrab</li>
+				<li style='background: mediumslateblue;'>mediumslateblue</li>
+				<li style='background: lawngreen;'>lawngreen</li>
+				<li style='background: chartreuse;'>chartreuse</li>
+				<li style='background: aquamarine;'>aquamarine</li>
+				<li style='background: skyblue;'>skyblue</li>
+				<li style='background: lightskyblue;'>lightskyblue</li>
+				<li style='background: blueviolet;'>blueviolet</li>
+				<li style='background: darkred;'>darkred</li>
+				<li style='background: darkmagenta;'>darkmagenta</li>
+				<li style='background: saddlebrown;'>saddlebrown</li>
+				<li style='background: darkseagreen;'>darkseagreen</li>
+				<li style='background: lightgreen;'>lightgreen</li>
+				<li style='background: mediumpurple;'>mediumpurple</li>
+				<li style='background: darkviolet;'>darkviolet</li>
+				<li style='background: palegreen;'>palegreen</li>
+				<li style='background: darkorchid;'>darkorchid</li>
+				<li style='background: yellowgreen;'>yellowgreen</li>
+				<li style='background: sienna;'>sienna</li>
+				<li style='background: brown;'>brown</li>
+				<li style='background: darkgray;'>darkgray</li>
+				<li style='background: lightblue;'>lightblue</li>
+				<li style='background: greenyellow;'>greenyellow</li>
+				<li style='background: paleturquoise;'>paleturquoise</li>
+				<li style='background: lightsteelblue;'>lightsteelblue</li>
+				<li style='background: powderblue;'>powderblue</li>
+				<li style='background: firebrick;'>firebrick</li>
+				<li style='background: darkgoldenrod;'>darkgoldenrod</li>
+				<li style='background: mediumorchid;'>mediumorchid</li>
+				<li style='background: rosybrown;'>rosybrown</li>
+				<li style='background: darkkhaki;'>darkkhaki</li>
+				<li style='background: silver;'>silver</li>
+				<li style='background: mediumvioletred;'>mediumvioletred</li>
+				<li style='background: indianred;'>indianred</li>
+				<li style='background: peru;'>peru</li>
+				<li style='background: chocolate;'>chocolate</li>
+				<li style='background: tan;'>tan</li>
+				<li style='background: lightgrey;'>lightgrey</li>
+				<li style='background: thistle;'>thistle</li>
+				<li style='background: orchid;'>orchid</li>
+				<li style='background: goldenrod;'>goldenrod</li>
+				<li style='background: palevioletred;'>palevioletred</li>
+				<li style='background: crimson;'>crimson</li>
+				<li style='background: gainsboro;'>gainsboro</li>
+				<li style='background: plum;'>plum</li>
+				<li style='background: burlywood;'>burlywood</li>
+				<li style='background: lightcyan;'>lightcyan</li>
+				<li style='background: lavender;'>lavender</li>
+				<li style='background: darksalmon;'>darksalmon</li>
+				<li style='background: violet;'>violet</li>
+				<li style='background: palegoldenrod;'>palegoldenrod</li>
+				<li style='background: lightcoral;'>lightcoral</li>
+				<li style='background: khaki;'>khaki</li>
+				<li style='background: aliceblue;'>aliceblue</li>
+				<li style='background: honeydew;'>honeydew</li>
+				<li style='background: azure;'>azure</li>
+				<li style='background: sandybrown;'>sandybrown</li>
+				<li style='background: wheat;'>wheat</li>
+				<li style='background: beige;'>beige</li>
+				<li style='background: whitesmoke;'>whitesmoke</li>
+				<li style='background: mintcream;'>mintcream</li>
+				<li style='background: ghostwhite;'>ghostwhite</li>
+				<li style='background: salmon;'>salmon</li>
+				<li style='background: antiquewhite;'>antiquewhite</li>
+				<li style='background: linen;'>linen</li>
+				<li style='background: lightgoldenrodyellow;'>lightgoldenrodyellow</li>
+				<li style='background: oldlace;'>oldlace</li>
+				<li style='background: red;'>red</li>
+				<li style='background: fuchsia;'>fuchsia</li>
+				<li style='background: magenta;'>magenta</li>
+				<li style='background: deeppink;'>deeppink</li>
+				<li style='background: orangered;'>orangered</li>
+				<li style='background: tomato;'>tomato</li>
+				<li style='background: hotpink;'>hotpink</li>
+				<li style='background: coral;'>coral</li>
+				<li style='background: darkorange;'>darkorange</li>
+				<li style='background: lightsalmon;'>lightsalmon</li>
+				<li style='background: orange;'>orange</li>
+				<li style='background: lightpink;'>lightpink</li>
+				<li style='background: pink;'>pink</li>
+				<li style='background: gold;'>gold</li>
+				<li style='background: peachpuff;'>peachpuff</li>
+				<li style='background: navajowhite;'>navajowhite</li>
+				<li style='background: moccasin;'>moccasin</li>
+				<li style='background: bisque;'>bisque</li>
+				<li style='background: mistyrose;'>mistyrose</li>
+				<li style='background: blanchedalmond;'>blanchedalmond</li>
+				<li style='background: papayawhip;'>papayawhip</li>
+				<li style='background: lavenderblush;'>lavenderblush</li>
+				<li style='background: seashell;'>seashell</li>
+				<li style='background: cornsilk;'>cornsilk</li>
+				<li style='background: lemonchiffon;'>lemonchiffon</li>
+				<li style='background: floralwhite;'>floralwhite</li>
+				<li style='background: snow;'>snow</li>
+				<li style='background: yellow;'>yellow</li>
+				<li style='background: lightyellow;'>lightyellow</li>
+				<li style='background: ivory;'>ivory</li>
+				<li style='background: white;'>white</li>
+			</ul>
 		</div>
 	</div>
 

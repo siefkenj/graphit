@@ -50,6 +50,86 @@ emph {
 
 
 /*
+ * Documentation tab
+ */
+#mathfunctions, #graphingconstants, #graphingfunctions, #colors {
+	border: 1px solid black;
+	padding: 1em 2em 1em 2em;
+	background: #fafafa;
+}
+#graphingconstants, #graphingfunctions {
+	-moz-column-count: 2;
+	-moz-column-gap: 1.5em;
+	-webkit-column-count: 2;
+	-webkit-column-gap: 1.5em;
+	column-count: 2;
+	column-gap: 1.5em;
+}
+#mathfunctions li {
+	display: inline-block;
+	font-family: Droid Sans Mono, Courrier New, monospace;
+	width: 10em;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-right: 1.5em;
+}
+#graphingconstants li {
+	display: block;
+	font-family: Droid Sans Mono, Courrier New, monospace;
+	padding-right: 1.5em;
+	padding-bottom: .6em;
+	/*width: 50%;*/
+	box-sizing: border-box;
+	-moz-box-sizing: border-box;
+}
+#graphingconstants .name {
+	font-weight: bold;
+	margin-right: 1em;
+	float: left;
+}
+#graphingconstants .default:before {
+	content: "default: ";
+	color: gray;
+}
+#graphingconstants .default {
+	display: block;
+	margin-left: 10em;
+}
+#graphingconstants .type:before {
+	content: "type: ";
+	color: gray;
+}
+#graphingconstants .type {
+	display: block;
+	margin-left: 10em;
+}
+#graphingconstants .description {
+	display: block;
+	font-family: sans;
+	font-size: .9em;
+	margin-left: 2em;
+}
+#graphingfunctions li {
+	display: block;
+	font-family: Droid Sans Mono, Courrier New, monospace;
+	padding-right: 1.5em;
+	/*width: 50%;*/
+	box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	padding-bottom: .6em;
+}
+#graphingfunctions .name {
+	font-weight: bold;
+}
+#colors li {
+	display: inline-block;
+	font-family: Droid Sans Mono, Courrier New, monospace;
+	padding-right: 1.5em;
+	width: 10em;
+}
+
+/*
  * Drag and drop stuff
  */
 

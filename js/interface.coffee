@@ -25,6 +25,10 @@ typeOf = (obj) ->
     if constructorName == 'Object'
         return 'object'
     return constructorName
+# wraps strings in quotes, otherwise does nothing
+wrap = (s) ->
+    return if typeOf(s) is 'string' then "'#{s}'" else s
+
 
 ###
 # Various methods of downloading data to the users compuer so they can save it.
@@ -198,6 +202,10 @@ $(document).ready ->
     resizeGraph()
     initializeGraphHistory()
     loadExamples()
+    try
+        loadDocumentation()
+    catch e
+        ''
 
     # patch pdfkit-www since it contains an error where it doesnt
     # compute the length of uncompressed streams...
@@ -217,7 +225,57 @@ $(document).ready ->
             @data.Length ?= @finalizedStream.length
         else
             @finalizedStream = ''
+
     return
+
+loadDocumentation = ->
+    # set up the math functions
+    target = $('#mathfunctions')
+    consts = []
+    strconsts = []
+    funcs = []
+    for item,val of MathFunctions
+        switch typeOf(val)
+            when 'function'
+                funcs.push item
+            when 'string'
+                strconsts.push item
+            when 'number'
+                consts.push item
+    consts.sort()
+    strconsts.sort()
+    funcs.sort()
+    for name in strconsts
+        target.append("<li>#{name} = '#{MathFunctions[name]}'</li>")
+    for name in consts
+        target.append("<li>#{name} &asymp; #{MathFunctions[name]}</li>")
+    for name in funcs
+        target.append("<li>#{name}()</li>")
+
+    # graphing constants
+    target = $('#graphingconstants')
+    consts = (c for c of nAsciiSVG.constants)
+    consts.sort()
+    for name in consts
+        info = nAsciiSVG.constants[name]
+        elm = $("<li><span class='name'>#{name}</span></li>")
+        elm.append("<span class='default'>#{wrap(info.default)}</span>") if info.default
+        elm.append("<span class='type'>#{info.type}</span>") if info.type
+        elm.append("<span class='description'>#{info.description}</span>") if info.description
+        target.append(elm)
+
+    # graphing functions
+    target = $('#graphingfunctions')
+    consts = (c for c of nAsciiSVG.functions)
+    consts.sort()
+    for name in consts
+        elm = $("<li><span class='name'>#{name}</span></li>")
+        info = nAsciiSVG[name].toString()
+        m = info.match(/function\s*\((.*)\)/)
+        if m?
+            info = m[1]
+            elm.append("(#{info})")
+        target.append(elm)
 
 ###
 # Draw the current graph to #svg-preview
@@ -287,7 +345,7 @@ saveGraph = (fileName, fileFormat) ->
         downloadManager = new DownloadManager(fileName, svgText, 'image/svg+xml')
     else if fileFormat is 'pdf'
         pdfDoc = new PDFDocument({size: [width, height]})
-        nAsciiSVG.ctx().playbackTo(pdfDoc, 'pdf')
+        nAsciiSVG.ctx.playbackTo(pdfDoc, 'pdf')
         pdfDoc.info['graphitCode'] = inputArea.getValue()
         pdfRaw = pdfDoc.output()
         window.pdfDoc = pdfDoc
@@ -295,7 +353,7 @@ saveGraph = (fileName, fileFormat) ->
     else if fileFormat is 'png'
         canvas = $("<canvas width='#{width}' height='#{height}'></canvas>")[0]
         ctx = canvas.getContext('2d')
-        nAsciiSVG.ctx().playbackTo(ctx, 'canvas')
+        nAsciiSVG.ctx.playbackTo(ctx, 'canvas')
         data = canvas.toDataURL('image/png')
         #window.open(data)
         data = atob(data.slice('data:image/png;base64,'.length))

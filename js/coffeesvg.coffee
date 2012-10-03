@@ -429,204 +429,398 @@ class RecordableCanvas
             @text(str, x + offset_x, y + offset_y)
     _playbackOverridesSvg: {}
 
+###
+# Class that uses esprima and escodegen
+# to rewrite code. Specifically, it can
+# add foo.lineNumber = <num> markers before
+# each function call, and prefix function
+# calls and variable assignments, e.g.
+# bar() -> foo.bar()
+# bar = 5 -> foo.bar = 5
+###
+class SourceModifier
+    # encloses tree in a BlockStatement if it isn't a
+    # BlockStatement already
+    encloseInBlock = (tree) ->
+            if tree.type is 'BlockStatement'
+                return tree
+            else
+                newElm =
+                    type: 'BlockStatement'
+                    body: [tree]
+                return newElm
 
-window.nAsciiSVG = (->
-    ###
-    # All the useful math functions
-    ###
-    random = Math.random
-    tan = Math.tan
-    min = Math.min
-    PI = Math.PI
-    sqrt = Math.sqrt
-    E = Math.E
-    SQRT1_2 = Math.SQRT1_2
-    ceil = Math.ceil
-    atan2 = Math.atan2
-    cos = Math.cos
-    LN2 = Math.LN2
-    LOG10E = Math.LOG10E
-    exp = Math.exp
+    constructor: (@source) ->
+
+    parse: (str=@source or '') ->
+        @tree = esprima.parse(str, {loc: true})
+        {@assignments, @calls, @blocks} = @walk(@tree)
+
+    generateCode: ->
+        if not @tree?
+            throw new Error('You must run parse() before calling generateCode()')
+        return escodegen.generate(@tree)
+
+    # Any assignment listed in the array assign
+    # will be prefixed with <val>.
+    # prefixKeywords is an object whose keys are each keyword that should
+    # be prefixed. If prefixKeywords is null, all assignments will be prefixed
+    prefixAssignments: (val='foo', prefixKeywords=null, assign=@assignments) ->
+        for a in assign
+            if a.type is 'Identifier' and (prefixKeywords == null or a.name of prefixKeywords)
+                newNode =
+                    type: 'MemberExpression'
+                    object:
+                        type: 'Identifier'
+                        name: val
+                    property: a
+                a.parent.left = newNode
+        return
+
+    # Any function call listed in the array calls
+    # will be prefixed with <val>.
+    prefixCalls: (val='foo', prefixKeywords=null, calls=@calls) ->
+        for a in calls
+            if a.type is 'Identifier' and (prefixKeywords == null or a.name of prefixKeywords)
+                newNode =
+                    type: 'MemberExpression'
+                    object:
+                        type: 'Identifier'
+                        name: val
+                    property: a
+                a.parent.callee = newNode
+        return
+
+    # In every array block of code, before any
+    # function call <val>.lineNumber = <line number>
+    # will be inserted
+    insertLineNumbers: (val='foo', blocks=@blocks) ->
+        for b in blocks
+            i = 0
+            while b[i]?
+                node = b[i]
+                if node.type is 'ExpressionStatement' and node.expression.type is 'CallExpression'
+                    node = node.expression
+                    # create the line assignment node
+                    newNode =
+                        type: 'ExpressionStatement'
+                        expression:
+                            type: 'AssignmentExpression'
+                            operator: '='
+                            left:
+                                type: 'MemberExpression'
+                                object:
+                                    type: 'Identifier'
+                                    name: val
+                                property:
+                                    type: 'Identifier'
+                                    name: 'lineNumber'
+                            right:
+                                type: 'Literal'
+                                value: node.loc.start.line
+                    b.splice(i,0,newNode)
+                    i++
+                i++
+        return
+
+    # Walk the syntax tree and collect any assignments or calls
+    # to top-level functions
+    walk: (tree, tracked={assignments:[], calls:[], blocks:[]}) ->
+        if not tree?
+            return
+
+        if typeOf(tree) is 'array'
+            for e in tree
+                @walk(e, tracked)
+        else
+            # recurse upon each node in the syntax tree
+            # and record any of them we are interested in
+            # TODO make the list comprehensive
+            switch tree.type
+                when 'Program'
+                    tracked['blocks'].push tree.body
+                    @walk(tree.body, tracked)
+                when 'BlockStatement'
+                    @walk(tree.body, tracked)
+                when 'ForStatement'
+                    tree.body = encloseInBlock(tree.body)
+                    tracked['blocks'].push tree.body.body
+                    @walk(tree.body, tracked)
+                    @walk(tree.init, tracked)
+                    @walk(tree.test, tracked)
+                    @walk(tree.update, tracked)
+                when 'ForInStatement'
+                    tree.body = encloseInBlock(tree.body)
+                    tracked['blocks'].push tree.body.body
+                    @walk(tree.body, tracked)
+                    @walk(tree.left, tracked)
+                    @walk(tree.right, tracked)
+                when 'WhileStatement'
+                    tree.body = encloseInBlock(tree.body)
+                    tracked['blocks'].push tree.body.body
+                    @walk(tree.body, tracked)
+                    @walk(tree.test, tracked)
+                when 'IfStatement'
+                    tree.consequent = encloseInBlock(tree.consequent)
+                    tracked['blocks'].push tree.consequent.body
+                    @walk(tree.test, tracked)
+                    @walk(tree.consequent, tracked)
+                when 'TryStatement'
+                    tree.block = encloseInBlock(tree.block)
+                    tracked['blocks'].push tree.block.body
+                    @walk(tree.block, tracked)
+                    @walk(tree.finalizer, tracked)
+                    @walk(tree.handlers, tracked)
+                when 'CatchClause'
+                    tree.body = encloseInBlock(tree.body)
+                    tracked['blocks'].push tree.body.body
+                    @walk(tree.body, tracked)
+                when 'FunctionDeclaration', 'FunctionExpression'
+                    tree.body = encloseInBlock(tree.body)
+                    tracked['blocks'].push tree.body.body
+                    @walk(tree.body, tracked)
+                when 'UpdateExpression'
+                    @walk(tree.argument,tracked)
+                when 'BinaryExpression'
+                    @walk(tree.left,tracked)
+                    @walk(tree.right,tracked)
+                when 'ExpressionStatement'
+                    @walk(tree.expression, tracked)
+                when 'CallExpression'
+                    tree.callee.parent = tree
+                    tracked['calls'].push tree.callee
+                    @walk(tree.arguments, tracked)
+                when 'AssignmentExpression'
+                    tree.left.parent = tree
+                    tracked['assignments'].push tree.left
+                    @walk(tree.right, tracked)
+        return tracked
+
+###
+# All the useful math functions
+###
+MathFunctions =
+    random: Math.random
+    tan: Math.tan
+    min: Math.min
+    PI: Math.PI
+    sqrt: Math.sqrt
+    E: Math.E
+    SQRT1_2: Math.SQRT1_2
+    ceil: Math.ceil
+    atan2: Math.atan2
+    cos: Math.cos
+    LN2: Math.LN2
+    LOG10E: Math.LOG10E
+    exp: Math.exp
+    round: (n, places) ->
+        shift = Math.pow(10, places)
+        return Math.round(n*shift) / shift
+    atan: Math.atan
+    max: Math.max
+    pow: Math.pow
+    LOG2E: Math.LOG2E
+    log: Math.log
+    LN10: Math.LN10
+    floor: Math.floor
+    SQRT2: Math.SQRT2
+    asin: Math.asin
+    acos: Math.acos
+    sin: Math.sin
+    abs: Math.abs
+    cpi: "\u03C0"
+    ctheta: "\u03B8"
+    pi: Math.PI
+    ln: Math.log
+    e: Math.E
+    sign: (x) ->
+        (if x is 0 then 0 else ((if x < 0 then -1 else 1)))
+    arcsin: Math.asin
+    arccos: Math.acos
+    arctan: Math.atan
+    sinh: (x) ->
+        (Math.exp(x) - Math.exp(-x)) / 2
+    cosh: (x) ->
+        (Math.exp(x) + Math.exp(-x)) / 2
+    tanh: (x) ->
+        (Math.exp(x) - Math.exp(-x)) / (Math.exp(x) + Math.exp(-x))
+    arcsinh: (x) ->
+        ln x + Math.sqrt(x * x + 1)
+    arccosh: (x) ->
+        ln x + Math.sqrt(x * x - 1)
+    arctanh: (x) ->
+        ln((1 + x) / (1 - x)) / 2
+    sech: (x) ->
+        1 / cosh(x)
+    csch: (x) ->
+        1 / sinh(x)
+    coth: (x) ->
+        1 / tanh(x)
+    arcsech: (x) ->
+        arccosh 1 / x
+    arccsch: (x) ->
+        arcsinh 1 / x
+    arccoth: (x) ->
+        arctanh 1 / x
+    sec: (x) ->
+        1 / Math.cos(x)
+    csc: (x) ->
+        1 / Math.sin(x)
+    cot: (x) ->
+        1 / Math.tan(x)
+    arcsec: (x) ->
+        arccos 1 / x
+    arccsc: (x) ->
+        arcsin 1 / x
+    arccot: (x) ->
+        arctan 1 / x
+
+###
+# The AsciiSVG object. When asciisvg
+# code is evaled, it is first preparsed and any keyword belonging
+# to the public api is prefixed so that it is actually an attribute
+# access.  For example "plot(...)" would get turned
+# into "api.plot(...)". This is a workaround since we can't define dynamic scope
+# in javascript without using the With statement.  Note, all MathFunctions
+# are added to the api
+#
+# In general, methods starting with _ are for device coordinates
+###
+class AsciiSVG
+    # XXX super ugly hack to make sure all math functions are defined
+    # and available via closure to any method call
+    arr = []
+    for item of MathFunctions
+        arr.push "#{item} = MathFunctions.#{item}"
+    eval "var #{arr.join(',')}"
+    # end hack
+
     round = (n, places) ->
         shift = Math.pow(10, places)
         return Math.round(n*shift) / shift
-    atan = Math.atan
-    max = Math.max
-    pow = Math.pow
-    LOG2E = Math.LOG2E
-    log = Math.log
-    LN10 = Math.LN10
-    floor = Math.floor
-    SQRT2 = Math.SQRT2
-    asin = Math.asin
-    acos = Math.acos
-    sin = Math.sin
-    abs = Math.abs
-    cpi = "\u03C0"
-    ctheta = "\u03B8"
-    pi = Math.PI
-    ln = Math.log
-    e = Math.E
-    sign = (x) ->
-        (if x is 0 then 0 else ((if x < 0 then -1 else 1)))
-    arcsin = Math.asin
-    arccos = Math.acos
-    arctan = Math.atan
-    sinh = (x) ->
-        (Math.exp(x) - Math.exp(-x)) / 2
-    cosh = (x) ->
-        (Math.exp(x) + Math.exp(-x)) / 2
-    tanh = (x) ->
-        (Math.exp(x) - Math.exp(-x)) / (Math.exp(x) + Math.exp(-x))
-    arcsinh = (x) ->
-        ln x + Math.sqrt(x * x + 1)
-    arccosh = (x) ->
-        ln x + Math.sqrt(x * x - 1)
-    arctanh = (x) ->
-        ln((1 + x) / (1 - x)) / 2
-    sech = (x) ->
-        1 / cosh(x)
-    csch = (x) ->
-        1 / sinh(x)
-    coth = (x) ->
-        1 / tanh(x)
-    arcsech = (x) ->
-        arccosh 1 / x
-    arccsch = (x) ->
-        arcsinh 1 / x
-    arccoth = (x) ->
-        arctanh 1 / x
-    sec = (x) ->
-        1 / Math.cos(x)
-    csc = (x) ->
-        1 / Math.sin(x)
-    cot = (x) ->
-        1 / Math.tan(x)
-    arcsec = (x) ->
-        arccos 1 / x
-    arccsc = (x) ->
-        arcsin 1 / x
-    arccot = (x) ->
-        arctan 1 / x
+    api = {}
+    _toDeviceCoordinates: (p) ->
+        return [p[0]*@_xunitlength + @_origin[0], api.height - p[1]*@_yunitlength - @_origin[1]]
+    constants:
+        xmin: {default: -5, type: 'number', description: ''}
+        xmax: {default: 5, type: 'number', description: ''}
+        ymin: {default: -5, type: 'number', description: ''}
+        ymax: {default: 5, type: 'number', description: ''}
+        border: {default: 0, type: 'number', description: ''}
+        width: {default: null, type: 'number', description: ''}
+        height: {default: null, type: 'number', description: ''}
+        fontsize: {default: null, type: 'number', description: ''}
+        fontfamily: {default: 'sans', type: 'string', description: ''}
+        fontstyle: {default: 'normal', type: 'string', description: '', options: ['normal', 'italic']}
+        fontweight: {default: 'normal', type: 'string', description: '', options: ['normal', 'bold']}
+        fontfill: {default: 'black', type: 'color', description: ''}
+        fontstroke: {default: 'none', type: 'color', description: ''}
+        markersize: {default: 4, type: 'number', description: 'The size of an arrowhead'}
+        marker: {default: null, type: 'number', description: '', options: ['arrow', 'dot', 'arrowdot']}
+        stroke: {default: 'black', type: 'color', description: ''}
+        strokewidth: {default: 1, type: 'number', description: ''}
+        background: {default: 'white', type: 'color', description: ''}
+        gridstroke: {default: '#aaaaaa', type: 'color', description: ''} #light-gray
+        fill: {default: 'none', type: 'color', description: ''}
+        axesstroke: {default: 'black', type: 'color', description: ''}
+        ticklength: {default: 4, type: 'number', description: 'The length of the ticks that mark the units along the axes'}
+        dotradius: {default: 4, type: 'number', description: ''}
+    functions:
+        initPicture: {}
+        axes: {}
+        plot: {}
+        dot: {}
+        line: {}
+        text: {}
+        setBorder: {description: 'Does nothing; exists for backwards compatibility'}
+        rect: {}
+        circle: {}
+        path: {}
+        slopefield: {}
 
-    ctx = null
+    constructor: ->
+        api = {}
+        # populate the api with all the available asciisvg commands
+        for item,val of @constants
+            api[item] = val.default
+        for item of @functions
+            api[item] = @[item].bind(this)
 
-    # defaults
-    xmin = -5
-    xmax = 5
-    ymin = -5
-    ymax = 5
-    border = 0
-    xunitlength = yunitlength = 1
-    origin = [0,0]
-    width = null
-    height = null
-    fontsize = null
-    fontfamily = 'sans'
-    fontstyle = 'normal'
-    fontweight = 'normal'
-    fontfill = 'black'
-    fontstroke = 'none'
+    _xunitlength: 1
+    _yunitlength: 1
+    _origin: [0, 0]
+    _resetDefaults: ->
+        @_xunitlength = 1
+        @_yunitlength = 1
+        for item,val of @constants
+            api[item] = val.default
 
-    markersize = 4
-    marker = null
-    defaultfontsize = 16
-    stroke = 'black'
-    strokewidth = 1
-    background = 'white'
-    gridstroke = '#aaaaaa' #light-gray
-    fill = 'none'
-    axesstroke = 'black'
-    ticklength = 4
-    dotradius = 4
+    # returns the api object which stores all public
+    # variables and functions
+    getApi: ->
+        return api
 
-    resetDefaults = ->
-        # defaults
-        xmin = -5
-        xmax = 5
-        ymin = -5
-        ymax = 5
-        border = 0
-        xunitlength = yunitlength = 1
-        origin = [0,0]
-        width = null
-        height = null
-        fontsize = null
-        fontfamily = 'sans'
-        fontstyle = 'normal'
-        fontweight = 'normal'
-        fontfill = 'black'
-        fontstroke = 'none'
-
-        markersize = 4
-        marker = null
-        defaultfontsize = 16
-        stroke = 'black'
-        strokewidth = 1
-        gridstroke = '#aaaaaa'
-        fill = 'yellow'
-        axesstroke = 'black'
-        ticklength = 4
-
-    toDeviceCoordinates = (p) ->
-        return [p[0]*xunitlength + origin[0], height - p[1]*yunitlength - origin[1]]
-
-    updatePicture = (src, target, renderMode='svg') ->
-        resetDefaults()
+    updatePicture: (src=@src, target, renderMode='svg') ->
+        @_resetDefaults()
         if typeOf(target) == 'string'
             target = document.getElementById(target)
-        width = parseInt(target.getAttribute('width'))
-        height = parseInt(target.getAttribute('height'))
+        api.width = parseInt(target.getAttribute('width'))
+        api.height = parseInt(target.getAttribute('height'))
         id = target.getAttribute('id')
-        ctx = new RecordableCanvas(width, height)
+        @ctx = new RecordableCanvas(api.width, api.height)
 
-        initPicture()
+        @initPicture()
         array_raw = src
         array_raw = array_raw.replace(/plot\(\x20*([^\"f\[][^\n\r]+?)\,/g,"plot\(\"$1\",")
         array_raw = array_raw.replace(/plot\(\x20*([^\"f\[][^\n\r]+)\)/g,"plot(\"$1\")")
         array_raw = array_raw.replace(/([0-9])([a-zA-Z])/g,"$1*$2")
         array_raw = array_raw.replace(/\)([\(0-9a-zA-Z])/g,"\)*$1")
 
-        eval(array_raw)
+        # preprocess the array to prefix anything in our api
+        # with api.<prop>, since you cannot dynamically set the scope in js without
+        # using the With statement (which doesn't exist in coffeescript)
+        source = new SourceModifier(array_raw)
+        source.parse()
+        source.prefixAssignments('api', api)
+        source.prefixCalls('api', api)
+        eval(source.generateCode())
 
         switch renderMode
             when 'canvas'
-                canvas = $("<canvas width='"+width+"' height='"+height+"' id='"+id+"' />")[0]
+                canvas = $("<canvas width='"+api.width+"' height='"+api.height+"' id='"+id+"' />")[0]
                 canvas_ctx = canvas.getContext('2d')
-                ctx.playbackTo(canvas_ctx, 'canvas')
+                @ctx.playbackTo(canvas_ctx, 'canvas')
                 target.parentNode.replaceChild(canvas, target)
             when 'svg'
-                svgCanvas = new SvgCanvas(width, height)
-                ctx.playbackTo(svgCanvas, 'svg')
+                svgCanvas = new SvgCanvas(api.width, api.height)
+                @ctx.playbackTo(svgCanvas, 'svg')
                 svgCanvas._root.setAttribute('id', id)
                 target.parentNode.replaceChild(svgCanvas._root, target)
         return
+    initPicture: (x_min, x_max, y_min=x_min, y_max=x_max) ->
+        api.xmin = x_min if x_min?
+        api.xmax = x_max if x_max?
+        api.ymin = y_min if y_min?
+        api.ymax = y_max if y_max?
 
-    initPicture = (x_min, x_max, y_min=x_min, y_max=x_max) ->
-        xmin = x_min if x_min?
-        xmax = x_max if x_max?
-        ymin = y_min if y_min?
-        ymax = y_max if y_max?
+        if api.xmin >= api.xmax or api.ymin >= api.ymax
+            throw new Error("Dimensions [#{[api.xmin,api.xmax,api.ymin,api.ymax]}] are not valid")
 
-        if xmin >= xmax or ymin >= ymax
-            throw new Error("Dimensions [#{[xmin,xmax,ymin,ymax]}] are not valid")
+        @_xunitlength = (api.width - 2 * api.border) / (api.xmax - api.xmin)
+        @_yunitlength = (api.height - 2 * api.border) / (api.ymax - api.ymin)
+        @_origin = [-api.xmin * @_xunitlength + api.border, -api.ymin * @_yunitlength + api.border]
+        @ctx.width = api.width
+        @ctx.height = api.height
 
-        xunitlength = (width - 2 * border) / (xmax - xmin)
-        yunitlength = (height - 2 * border) / (ymax - ymin)
-        origin = [-xmin * xunitlength + border, -ymin * yunitlength + border]
-        ctx.width = width
-        ctx.height = height
-
-        noaxes()
-
+        @_noaxes()
     # textanchor may be above, aboveleft, aboveright, left, right, below, belowleft, belowright
-    text = (pos, str, textanchor='center', angle=0, padding=4) ->
-        computed_fontsize = fontsize or defaultfontsize
-        p = toDeviceCoordinates(pos)
+    text: (pos, str, textanchor='center', angle=0, padding=4) ->
+        computed_fontsize = api.fontsize or constants.fontsize.default
+        p = @_toDeviceCoordinates(pos)
 
         if angle != 0
             throw new Error('rotations not yet supported')
-            ctx.rotate(angle/(2*pi))
+            @ctx.rotate(angle/(2*pi))
 
         # if text is left/right/above/below we need to give it a little bit
         # of padding so we don't overlap with the coordinates we requested
@@ -641,29 +835,20 @@ window.nAsciiSVG = (->
         if textanchor.match('below')
             padding_y += padding
 
-        ctx.font = "#{fontstyle} #{fontweight} #{computed_fontsize}px #{fontfamily}"
-        ctx.fontFamily = fontfamily
-        ctx.fontSize = computed_fontsize
-        ctx.fontWeight = fontweight
-        ctx.fontStyle = fontstyle
-        ctx.fillStyle = fontfill
-        ctx.text(str, p[0]+padding_x, p[1]+padding_y, textanchor)
+        @ctx.font = "#{api.fontstyle} #{api.fontweight} #{computed_fontsize}px #{api.fontfamily}"
+        @ctx.fontFamily = api.fontfamily
+        @ctx.fontSize = computed_fontsize
+        @ctx.fontWeight = api.fontweight
+        @ctx.fontStyle = api.fontstyle
+        @ctx.fillStyle = api.fontfill
+        @ctx.text(str, p[0]+padding_x, p[1]+padding_y, textanchor)
 
         return pos
-
-
-    setBorder = (width, color) ->
-        border = width if width?
-        stroke = color if color?
-
-    noaxes = ->
-        ctx.fillStyle = background
-        ctx.fillRect(0, 0, width, height)
-
-    axes = (dx, dy, labels, griddx, griddy, units) ->
-        tickdx = if dx? then dx * xunitlength else xunitlength
-        tickdy = if dy? then dy * yunitlength else yunitlength
-        fontsize = fontsize or min(tickdx/2, tickdy/2, 16)
+    setBorder: ->
+    axes: (dx, dy, labels, griddx, griddy, units) ->
+        tickdx = if dx? then dx * @_xunitlength else @_xunitlength
+        tickdy = if dy? then dy * @_yunitlength else @_yunitlength
+        api.fontsize = api.fontsize or min(tickdx/2, tickdy/2, 16)
 
         # if we pass in griddx and nothing for griddy,
         # assume we want griddx=griddy
@@ -672,215 +857,194 @@ window.nAsciiSVG = (->
 
         # draw the grid
         if griddx? or griddy?
-            ctx.beginPath()
-            ctx.strokeStyle = gridstroke
-            ctx.lineWidth = 0.5
-            ctx.fillStyle = fill
+            @ctx.beginPath()
+            @ctx.strokeStyle = api.gridstroke
+            @ctx.lineWidth = 0.5
+            @ctx.fillStyle = api.fill
 
             if griddx? and griddx > 0
-                x = ceil(xmin/griddx)*griddx # x-axis
-                while x < xmax
-                    p = toDeviceCoordinates([x,0])
-                    ctx.moveTo(p[0], 0)
-                    ctx.lineTo(p[0], height)
+                x = MathFunctions.ceil(api.xmin/griddx)*griddx # x-axis
+                while x < api.xmax
+                    p = @_toDeviceCoordinates([x,0])
+                    @ctx.moveTo(p[0], 0)
+                    @ctx.lineTo(p[0], api.height)
                     x += griddx
             if griddy? and griddy > 0
-                y = ceil(ymin/griddy)*griddy # x-axis
-                while y < ymax
-                    p = toDeviceCoordinates([0,y])
-                    ctx.moveTo(0, p[1])
-                    ctx.lineTo(width, p[1])
+                y = MathFunctions.ceil(api.ymin/griddy)*griddy # x-axis
+                while y < api.ymax
+                    p = @_toDeviceCoordinates([0,y])
+                    @ctx.moveTo(0, p[1])
+                    @ctx.lineTo(api.width, p[1])
                     y += griddy
-            ctx.stroke()
+            @ctx.stroke()
 
         # draw the axes
         if dx? or dy?
-            ctx.beginPath()
-            ctx.strokeStyle = axesstroke
-            ctx.fillStyle = fill
-            ctx.lineWidth = 1
+            @ctx.beginPath()
+            @ctx.strokeStyle = api.axesstroke
+            @ctx.fillStyle = api.fill
+            @ctx.lineWidth = 1
 
-            p = toDeviceCoordinates([0,0])
-            ctx.moveTo(0, p[1])
-            ctx.lineTo(width, p[1])
-            ctx.moveTo(p[0], 0)
-            ctx.lineTo(p[0], height)
+            p = @_toDeviceCoordinates([0,0])
+            @ctx.moveTo(0, p[1])
+            @ctx.lineTo(api.width, p[1])
+            @ctx.moveTo(p[0], 0)
+            @ctx.lineTo(p[0], api.height)
             if dx? and dx > 0
-                x = ceil(xmin/dx)*dx # x-axis
-                while x < xmax
+                x = MathFunctions.ceil(api.xmin/dx)*dx # x-axis
+                while x < api.xmax
                     # don't put a marker at the origin
                     if x == 0
                         x += dx
-                    p = toDeviceCoordinates([x,0])
-                    ctx.moveTo(p[0], p[1]-ticklength)
-                    ctx.lineTo(p[0], p[1]+ticklength)
+                    p = @_toDeviceCoordinates([x,0])
+                    @ctx.moveTo(p[0], p[1]-api.ticklength)
+                    @ctx.lineTo(p[0], p[1]+api.ticklength)
                     x += dx
             if dy? and dy > 0
-                y = ceil(ymin/dy)*dy # y-axis
-                while y < ymax
+                y = MathFunctions.ceil(api.ymin/dy)*dy # y-axis
+                while y < api.ymax
                     if y == 0
                         y += dy
-                    p = toDeviceCoordinates([0,y])
-                    ctx.moveTo(p[0]-ticklength, p[1])
-                    ctx.lineTo(p[0]+ticklength, p[1])
+                    p = @_toDeviceCoordinates([0,y])
+                    @ctx.moveTo(p[0]-api.ticklength, p[1])
+                    @ctx.lineTo(p[0]+api.ticklength, p[1])
                     y += dy
-            ctx.stroke()
+            @ctx.stroke()
 
         # labels
         if labels?
             xunits = yunits = ''
 
-            labeldecimals_x = floor(1.1 - log(dx)) + 1
-            labeldecimals_y = floor(1.1 - log(dy)) + 1
+            labeldecimals_x = Math.floor(1.1 - Math.log(dx)) + 1
+            labeldecimals_y = Math.floor(1.1 - Math.log(dy)) + 1
             # if the x-axis/y-axis is shown, put labels below/left, otherwise above/right
-            padding = 2*ticklength/yunitlength
-            labelposition_x = if (ymin > 0 or ymax < 0) then ymin + padding else -padding
-            padding = 2*ticklength/xunitlength
-            labelposition_y = if (xmin > 0 or xmax < 0) then xmin + padding else -padding
-            labelplacement_x = if (ymin > 0 or ymax < 0) then 'above' else 'below'
-            labelplacement_y = if (xmin > 0 or xmax < 0) then 'right' else 'left'
+            padding = 2*api.ticklength/@_yunitlength
+            labelposition_x = if (api.ymin > 0 or api.ymax < 0) then api.ymin + padding else -padding
+            padding = 2*api.ticklength/@_xunitlength
+            labelposition_y = if (api.xmin > 0 or api.xmax < 0) then api.xmin + padding else -padding
+            labelplacement_x = if (api.ymin > 0 or api.ymax < 0) then 'above' else 'below'
+            labelplacement_y = if (api.xmin > 0 or api.xmax < 0) then 'right' else 'left'
 
-            x = ceil(xmin/dx) * dx
-            while x < xmax
+            x = Math.ceil(api.xmin/dx) * dx
+            while x < api.xmax
                 # don't label the origin
                 if x == 0
                     x += dx
-                text([x,labelposition_x], "#{round(x,labeldecimals_x)}#{xunits}", labelplacement_x)
+                @text([x,labelposition_x], "#{round(x,labeldecimals_x)}#{xunits}", labelplacement_x)
                 x += dx
-            y = ceil(ymin/dy) * dy
-            while y < ymax
+            y = Math.ceil(api.ymin/dy) * dy
+            while y < api.ymax
                 # don't label the origin
                 if y == 0
                     y += dy
-                text([labelposition_y,y], "#{round(y,labeldecimals_y)}#{yunits}", labelplacement_y)
+                @text([labelposition_y,y], "#{round(y,labeldecimals_y)}#{yunits}", labelplacement_y)
                 y += dy
         return
-
-    rect = (corner1, corner2) ->
-        corner1 = toDeviceCoordinates(corner1)
-        corner2 = toDeviceCoordinates(corner2)
-        ctx.beginPath()
-        ctx.moveTo(corner1[0],corner1[1])
-        ctx.lineTo(corner1[0],corner2[1])
-        ctx.lineTo(corner2[0],corner2[1])
-        ctx.lineTo(corner2[0],corner1[1])
-        ctx.closePath()
-        ctx.fillStyle = fill
-        ctx.strokeStyle = stroke
-        if fill? and fill != 'none'
-            ctx.fillAndStroke()
-        else
-            ctx.stroke()
-
-    circle = (center, radius, filled=false) ->
-        p = toDeviceCoordinates(center)
-        radius = radius*xunitlength
-
-        ctx.beginPath()
-        ctx.lineWidth = strokewidth
-        ctx.strokeStyle = stroke
-        ctx.fillStyle = fill
-        ctx.circle(p[0], p[1], radius)
-        if filled
-            ctx.fillAndStroke()
-        else
-            ctx.stroke()
+    _noaxes: ->
+        @ctx.fillStyle = api.background
+        @ctx.fillRect(0, 0, api.width, api.height)
         return
+    rect: (corner1, corner2) ->
+        @_rect(@_toDeviceCoordinates(corner1), @_toDeviceCoordinates(corner2))
+        return
+    _rect: (corner1, corner2) ->
+        @ctx.beginPath()
+        @ctx.moveTo(corner1[0],corner1[1])
+        @ctx.lineTo(corner1[0],corner2[1])
+        @ctx.lineTo(corner2[0],corner2[1])
+        @ctx.lineTo(corner2[0],corner1[1])
+        @ctx.closePath()
+        @ctx.fillStyle = api.fill
+        @ctx.strokeStyle = api.stroke
+        if api.fill? and api.fill != 'none'
+            @ctx.fillAndStroke()
+        else
+            @ctx.stroke()
+        return
+    circle: (center, radius, filled=false) ->
+        p = @_toDeviceCoordinates(center)
+        radius = radius*@_xunitlength
 
-    dot = (center, type, label, textanchor='below', angle) ->
-        p = toDeviceCoordinates(center)
-        ctx.strokeStyle = stroke
-        ctx.lineWidth = strokewidth
+        @ctx.beginPath()
+        @ctx.lineWidth = api.strokewidth
+        @ctx.strokeStyle = api.stroke
+        @ctx.fillStyle = api.fill
+        @ctx.circle(p[0], p[1], radius)
+        if filled
+            @ctx.fillAndStroke()
+        else
+            @ctx.stroke()
+        return
+    dot: (center, type, label, textanchor='below', angle) ->
+        p = @_toDeviceCoordinates(center)
+        @ctx.strokeStyle = api.stroke
+        @ctx.lineWidth = api.strokewidth
 
         switch type
             when '+'
-                ctx.beginPath()
-                ctx.moveTo(p[0] - ticklength, p[1])
-                ctx.lineTo(p[0] + ticklength, p[1])
-                ctx.moveTo(p[0], p[1] - ticklength)
-                ctx.lineTo(p[0], p[1] + ticklength)
-                ctx.stroke()
+                @ctx.beginPath()
+                @ctx.moveTo(p[0] - api.ticklength, p[1])
+                @ctx.lineTo(p[0] + api.ticklength, p[1])
+                @ctx.moveTo(p[0], p[1] - api.ticklength)
+                @ctx.lineTo(p[0], p[1] + api.ticklength)
+                @ctx.stroke()
             when '-'
-                ctx.beginPath()
-                ctx.moveTo(p[0] - ticklength, p[1])
-                ctx.lineTo(p[0] + ticklength, p[1])
-                ctx.stroke()
+                @ctx.beginPath()
+                @ctx.moveTo(p[0] - api.ticklength, p[1])
+                @ctx.lineTo(p[0] + api.ticklength, p[1])
+                @ctx.stroke()
             when '|'
-                ctx.beginPath()
-                ctx.moveTo(p[0], p[1] - ticklength)
-                ctx.lineTo(p[0], p[1] + ticklength)
-                ctx.stroke()
+                @ctx.beginPath()
+                @ctx.moveTo(p[0], p[1] - api.ticklength)
+                @ctx.lineTo(p[0], p[1] + api.ticklength)
+                @ctx.stroke()
             else
                 # we don't want filling in this dot to affect how things are filled in general,
                 # so save the state and restore it after drawing the dot
-                prevFill = fill
+                prevFill = api.fill
                 if type?.match('open')
-                    fill = background
+                    api.fill = api.background
                 else if type?.match('closed')
-                    fill = stroke
-                circle(center, dotradius/xunitlength, true)
-                fill = prevFill
+                    api.fill = api.stroke
+                @circle(center, api.dotradius/@_xunitlength, true)
+                api.fill = prevFill
         if label?
-
-            text(center, label, textanchor, angle, dotradius+1)
-
-    #TODO fix
-    arrowhead = (p, q, size=markersize) ->
-        p = toDeviceCoordinates(p)
-        q = toDeviceCoordinates(q)
-        u = [p[0]-q[0], p[1]-q[1]]
-        d = Math.sqrt(u[0]*u[0] + u[1]*u[1])
-        if d > 1e-7
-            u = [-u[0]/d, -u[1]/d]
-            uperp = [-u[1], u[0]]
-            ctx.lineWidth = size
-            ctx.strokeStyle = stroke
-            ctx.fillStyle = stroke
-            ctx.beginPath()
-            ctx.moveTo(q[0]-15*u[0]-4*uperp[0], q[1]-15*u[1]-4*uperp[1])
-            ctx.lineTo(q[0]-3*u[0], q[1]-3*u[1])
-            ctx.lineTo(q[0]-15*u[0]+4*uperp[0], q[1]-15*u[1]+4*uperp[1])
-            ctx.closePath()
-            ctx.fillAndStroke()
+            @text(center, label, textanchor, angle, api.dotradius+1)
         return
+    line: (start, end) ->
+        @ctx.lineWidth = api.strokewidth
+        @ctx.strokeStyle = api.stroke
+        @_line(@_toDeviceCoordinates(start), @_toDeviceCoordinates(end))
+        if api.marker in ['dot', 'arrowdot']
+            @dot(start)
+            @arrowhead(start,end) if api.marker is 'arrowdot'
+            @dot(start)
+        return
+    _line: (start, end) ->
+        @ctx.beginPath()
+        @ctx.moveTo(start[0],start[1])
+        @ctx.lineTo(end[0],end[1])
+        @ctx.stroke()
+        return
+    path: (plist) ->
+        p = @_toDeviceCoordinates(plist[0])
 
-
-    line = (p, q) ->
-        u = toDeviceCoordinates(p)
-        v = toDeviceCoordinates(q)
-
-        ctx.beginPath()
-        ctx.lineWidth = strokewidth
-        ctx.strokeStyle = stroke
-        ctx.fillStyle = fill
-        ctx.moveTo(u[0], u[1])
-        ctx.lineTo(v[0], v[1])
-        ctx.stroke()
-        if marker in ['dot', 'arrowdot']
-            dot(p)
-            arrowhead(p,q) if marker is 'arrowdot'
-            dot(q)
-
-    path = (plist) ->
-        p = toDeviceCoordinates(plist[0])
-
-        ctx.beginPath()
-        ctx.lineWidth = strokewidth
-        ctx.strokeStyle = stroke
-        ctx.fillStyle = fill
-        ctx.moveTo(p[0],p[1])
+        @ctx.beginPath()
+        @ctx.lineWidth = api.strokewidth
+        @ctx.strokeStyle = api.stroke
+        @ctx.fillStyle = api.fill
+        @ctx.moveTo(p[0],p[1])
 
         for p in plist[1..]
-            p = toDeviceCoordinates(p)
-            ctx.lineTo(p[0],p[1])
-        ctx.stroke()
+            p = @_toDeviceCoordinates(p)
+            @ctx.lineTo(p[0],p[1])
+        @ctx.stroke()
 
-        if marker in ['dot', 'arrowdot']
+        if api.marker in ['dot', 'arrowdot']
             for p in plist
-                dot(p)
+                @dot(p)
         return
-
-    plot = (func, x_min=xmin, x_max=xmax, samples=200) ->
+    plot: (func, x_min=api.xmin, x_max=api.xmax, samples=200) ->
         toFunc = (func) ->
             switch typeOf(func)
                 when 'string'
@@ -895,8 +1059,8 @@ window.nAsciiSVG = (->
         # values that are too extreme relative to our plot we wan to
         # round down a bit
         threshold = (x) ->
-            plotDiameter = max(1e-6, ymax - ymin, xmax - xmin)
-            return min(max(x, ymin - plotDiameter*100), ymax + plotDiameter*100)
+            plotDiameter = Math.max(1e-6, api.ymax - api.ymin, api.xmax - api.xmin)
+            return Math.min(Math.max(x, api.ymin - plotDiameter*100), api.ymax + plotDiameter*100)
 
         f = (x) -> x
         g = null
@@ -910,7 +1074,7 @@ window.nAsciiSVG = (->
                 throw new Error("Unknown function type '#{func}'")
 
         points = []
-        inc = max(0.0000001, (x_max-x_min)/samples)
+        inc = Math.max(0.0000001, (x_max-x_min)/samples)
         for t in [x_min..x_max] by inc
             # svg and pdf don't know how to handle points that are too extreme,
             # so threshold our function values before we actually plot them
@@ -921,7 +1085,7 @@ window.nAsciiSVG = (->
         # the pieces that are on screen, so split the graph up into its
         # connected components.
         inbounds = (p) ->
-            if p[1] > ymin and p[1] < ymax and p[0] > xmin and p[0] < xmax
+            if p[1] > api.ymin and p[1] < api.ymax and p[0] > api.xmin and p[0] < api.xmax
                 return true
             return false
         paths = []
@@ -944,20 +1108,19 @@ window.nAsciiSVG = (->
 
         for p in paths
             if p.length > 0
-                path(p)
+                @path(p)
         return
-
-    slopefield = (func, dx=1, dy=1) ->
+    slopefield: (func, dx=1, dy=1) ->
         g = func
         if typeOf(func) is 'string'
             eval("g = function(x,y){ return #{mathjs(func)} }")
         dz = sqrt(dx*dx+dy*dy)/4
-        x_min = ceil(xmin / dx) * dx
-        y_min = ceil(ymin / dy) * dy
+        x_min = Math.ceil(api.xmin / dx) * dx
+        y_min = Math.ceil(api.ymin / dy) * dy
         pointList = []
 
-        for x in [x_min..xmax] by dx
-            for y in [y_min..ymax] by dy
+        for x in [x_min..api.xmax] by dx
+            for y in [y_min..api.ymax] by dy
                 gxy = g(x,y)
                 if not isNaN(gxy)
                     if abs(gxy) == Infinity
@@ -966,12 +1129,29 @@ window.nAsciiSVG = (->
                     else
                         u = dz / sqrt(1 + gxy*gxy)
                         v = gxy * u
-                    if xmin <= x <= xmax and ymin <= y <= ymax
+                    if api.xmin <= x <= api.xmax and api.ymin <= y <= api.ymax
                         pointList.push [[x-u,y-v],[x+u,y+v]]
         for l in pointList
-            line(l[0],l[1])
+            @line(l[0],l[1])
         return
-
+    arrowhead: (p, q, size=api.markersize) ->
+        @_arrowhead(@_toDeviceCoordinates(p), @_toDeviceCoordinates(q), size)
+    _arrowhead: (p, q, size) ->
+        u = [p[0]-q[0], p[1]-q[1]]
+        d = Math.sqrt(u[0]*u[0] + u[1]*u[1])
+        if d > 1e-7
+            u = [-u[0]/d, -u[1]/d]
+            uperp = [-u[1], u[0]]
+            @ctx.lineWidth = size
+            @ctx.strokeStyle = api.stroke
+            @ctx.fillStyle = api.stroke
+            @ctx.beginPath()
+            @ctx.moveTo(q[0]-15*u[0]-4*uperp[0], q[1]-15*u[1]-4*uperp[1])
+            @ctx.lineTo(q[0]-3*u[0], q[1]-3*u[1])
+            @ctx.lineTo(q[0]-15*u[0]+4*uperp[0], q[1]-15*u[1]+4*uperp[1])
+            @ctx.closePath()
+            @ctx.fillAndStroke()
+        return
 
     mathjs = (st) ->
         # Working (from ASCIISVG) - remains uncleaned for javaSVG.
@@ -1082,6 +1262,6 @@ window.nAsciiSVG = (->
             st = st.slice(0, j + 1) + "factorial(" + st.slice(j + 1, i) + ")" + st.slice(i + 1)
         return st
 
-
-    return {updatePicture: updatePicture, initPicture: initPicture, ctx: (-> ctx), axes:axes, plot:plot}
-)()
+# TODO: we should fix interface.coffee to keep its own instance of AsciiSVG,
+# but for now, let's just emulate the old behavior
+window.nAsciiSVG = new AsciiSVG
