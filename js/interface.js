@@ -303,7 +303,7 @@ $(document).ready(function() {
 });
 
 loadDocumentation = function() {
-  var c, consts, elm, funcs, info, item, m, name, strconsts, target, val, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _m, _results;
+  var c, consts, elm, funcs, i, info, item, m, name, strconsts, target, val, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _m, _results;
   target = $('#mathfunctions');
   consts = [];
   strconsts = [];
@@ -355,6 +355,18 @@ loadDocumentation = function() {
     }
     if (info.type) {
       elm.append("<span class='type'>" + info.type + "</span>");
+    }
+    if (info.options) {
+      elm.append("<span class='options'>" + (((function() {
+        var _len4, _m, _ref, _results;
+        _ref = info.options;
+        _results = [];
+        for (_m = 0, _len4 = _ref.length; _m < _len4; _m++) {
+          i = _ref[_m];
+          _results.push(wrap(i));
+        }
+        return _results;
+      })()).join(', ')) + "</span>");
     }
     if (info.description) {
       elm.append("<span class='description'>" + info.description + "</span>");

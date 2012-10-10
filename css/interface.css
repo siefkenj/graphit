@@ -104,6 +104,14 @@ emph {
 	display: block;
 	margin-left: 10em;
 }
+#graphingconstants .options:before {
+	content: "options: ";
+	color: gray;
+}
+#graphingconstants .options {
+	display: block;
+	margin-left: 10em;
+}
 #graphingconstants .description {
 	display: block;
 	font-family: sans;

@@ -261,6 +261,7 @@ loadDocumentation = ->
         elm = $("<li><span class='name'>#{name}</span></li>")
         elm.append("<span class='default'>#{wrap(info.default)}</span>") if info.default
         elm.append("<span class='type'>#{info.type}</span>") if info.type
+        elm.append("<span class='options'>#{(wrap(i) for i in info.options).join(', ')}</span>") if info.options
         elm.append("<span class='description'>#{info.description}</span>") if info.description
         target.append(elm)
 

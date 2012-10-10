@@ -702,29 +702,29 @@ class AsciiSVG
     _toDeviceCoordinates: (p) ->
         return [p[0]*@_xunitlength + @_origin[0], api.height - p[1]*@_yunitlength - @_origin[1]]
     constants:
-        xmin: {default: -5, type: 'number', description: ''}
-        xmax: {default: 5, type: 'number', description: ''}
-        ymin: {default: -5, type: 'number', description: ''}
-        ymax: {default: 5, type: 'number', description: ''}
-        border: {default: 0, type: 'number', description: ''}
-        width: {default: null, type: 'number', description: ''}
-        height: {default: null, type: 'number', description: ''}
-        fontsize: {default: null, type: 'number', description: ''}
-        fontfamily: {default: 'sans', type: 'string', description: ''}
-        fontstyle: {default: 'normal', type: 'string', description: '', options: ['normal', 'italic']}
-        fontweight: {default: 'normal', type: 'string', description: '', options: ['normal', 'bold']}
-        fontfill: {default: 'black', type: 'color', description: ''}
-        fontstroke: {default: 'none', type: 'color', description: ''}
+        xmin: {default: -5, type: 'number', description: 'Override the minimum x value of a plot (shouldn\'t be used)'}
+        xmax: {default: 5, type: 'number', description: 'Override the maximum x value of a plot (shouldn\'t be used)'}
+        ymin: {default: -5, type: 'number', description: 'Override the minimum y value of a plot (shouldn\'t be used)'}
+        ymax: {default: 5, type: 'number', description: 'Override the maximum y value of a plot (shouldn\'t be used)'}
+        border: {default: 0, type: 'number', description: 'Unused'}
+        width: {default: null, type: 'number', description: 'Override the width of a plot (shouldn\'t be used)'}
+        height: {default: null, type: 'number', description: 'Override the height of a plot (shouldn\'t be used)'}
+        fontsize: {default: null, type: 'number', description: 'Size of text'}
+        fontfamily: {default: 'sans', type: 'string', description: 'What font family to use', options: ['sans','serif','Helvetica','Times','Courier']}
+        fontstyle: {default: 'normal', type: 'string', description: 'Whether your font should be normal or italic', options: ['normal', 'italic']}
+        fontweight: {default: 'normal', type: 'string', description: 'Whether your font should be normal or bold', options: ['normal', 'bold']}
+        fontfill: {default: 'black', type: 'color', description: 'Color of text'}
+        fontstroke: {default: 'none', type: 'color', description: 'Color outlining each letter in a text string'}
         markersize: {default: 4, type: 'number', description: 'The size of an arrowhead'}
         marker: {default: null, type: 'number', description: '', options: ['arrow', 'dot', 'arrowdot']}
-        stroke: {default: 'black', type: 'color', description: ''}
-        strokewidth: {default: 1, type: 'number', description: ''}
-        background: {default: 'white', type: 'color', description: ''}
-        gridstroke: {default: '#aaaaaa', type: 'color', description: ''} #light-gray
-        fill: {default: 'none', type: 'color', description: ''}
-        axesstroke: {default: 'black', type: 'color', description: ''}
+        stroke: {default: 'black', type: 'color', description: 'Color to draw lines with'}
+        strokewidth: {default: 1, type: 'number', description: 'Thickness of lines'}
+        background: {default: 'white', type: 'color', description: 'Background color of plot'}
+        gridstroke: {default: '#aaaaaa', type: 'color', description: 'Color of gridlines of a plot'} #light-gray
+        fill: {default: 'none', type: 'color', description: 'Color to fill shapes (circles/etc.) with'}
+        axesstroke: {default: 'black', type: 'color', description: 'Color of the the axes'}
         ticklength: {default: 4, type: 'number', description: 'The length of the ticks that mark the units along the axes'}
-        dotradius: {default: 4, type: 'number', description: ''}
+        dotradius: {default: 4, type: 'number', description: 'Radius (in pixels) of dots drawn (for instance with the dot() command or marker="dot")'}
     functions:
         initPicture: {}
         axes: {}

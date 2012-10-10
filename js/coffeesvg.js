@@ -1018,69 +1018,70 @@ AsciiSVG = (function() {
     xmin: {
       "default": -5,
       type: 'number',
-      description: ''
+      description: 'Override the minimum x value of a plot (shouldn\'t be used)'
     },
     xmax: {
       "default": 5,
       type: 'number',
-      description: ''
+      description: 'Override the maximum x value of a plot (shouldn\'t be used)'
     },
     ymin: {
       "default": -5,
       type: 'number',
-      description: ''
+      description: 'Override the minimum y value of a plot (shouldn\'t be used)'
     },
     ymax: {
       "default": 5,
       type: 'number',
-      description: ''
+      description: 'Override the maximum y value of a plot (shouldn\'t be used)'
     },
     border: {
       "default": 0,
       type: 'number',
-      description: ''
+      description: 'Unused'
     },
     width: {
       "default": null,
       type: 'number',
-      description: ''
+      description: 'Override the width of a plot (shouldn\'t be used)'
     },
     height: {
       "default": null,
       type: 'number',
-      description: ''
+      description: 'Override the height of a plot (shouldn\'t be used)'
     },
     fontsize: {
       "default": null,
       type: 'number',
-      description: ''
+      description: 'Size of text'
     },
     fontfamily: {
       "default": 'sans',
       type: 'string',
-      description: ''
+      description: 'What font family to use',
+      options: ['sans', 'serif', 'Helvetica', 'Times', 'Courier']
     },
     fontstyle: {
       "default": 'normal',
       type: 'string',
-      description: '',
+      description: 'Whether your font should be normal or italic',
       options: ['normal', 'italic']
     },
     fontweight: {
       "default": 'normal',
       type: 'string',
-      description: '',
+      description: 'Whether your font should be normal or bold',
       options: ['normal', 'bold']
     },
     fontfill: {
       "default": 'black',
       type: 'color',
-      description: ''
+      description: 'Color of text'
     },
     fontstroke: {
       "default": 'none',
       type: 'color',
-      description: ''
+      description: 'Color outlining each letter in a text string'
     },
     markersize: {
       "default": 4,
@@ -1096,32 +1097,32 @@ AsciiSVG = (function() {
     stroke: {
       "default": 'black',
       type: 'color',
-      description: ''
+      description: 'Color to draw lines with'
     },
     strokewidth: {
       "default": 1,
       type: 'number',
-      description: ''
+      description: 'Thickness of lines'
     },
     background: {
       "default": 'white',
       type: 'color',
-      description: ''
+      description: 'Background color of plot'
     },
     gridstroke: {
       "default": '#aaaaaa',
       type: 'color',
-      description: ''
+      description: 'Color of gridlines of a plot'
     },
     fill: {
       "default": 'none',
       type: 'color',
-      description: ''
+      description: 'Color to fill shapes (circles/etc.) with'
     },
     axesstroke: {
       "default": 'black',
       type: 'color',
-      description: ''
+      description: 'Color of the the axes'
     },
     ticklength: {
       "default": 4,
@@ -1131,7 +1132,7 @@ AsciiSVG = (function() {
     dotradius: {
       "default": 4,
       type: 'number',
-      description: ''
+      description: 'Radius (in pixels) of dots drawn (for instance with the dot() command or marker="dot")'
     }
   };
 
