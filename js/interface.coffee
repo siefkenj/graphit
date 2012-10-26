@@ -27,8 +27,13 @@ typeOf = (obj) ->
     return constructorName
 # wraps strings in quotes, otherwise does nothing
 wrap = (s) ->
-    return if typeOf(s) is 'string' then "'#{s}'" else s
-
+    ret = s
+    switch typeOf(s)
+        when 'string'
+            ret = "'#{s}'"
+        when 'array'
+            ret = "[#{s.join(', ')}]"
+    return ret
 
 ###
 # Various methods of downloading data to the users compuer so they can save it.
@@ -225,6 +230,9 @@ $(document).ready ->
             @data.Length ?= @finalizedStream.length
         else
             @finalizedStream = ''
+    #pdfkit.modules['./mixins/vector'].exports.undash = ->
+    PDFDocument.prototype.undash = ->
+        return @addContent("[] 0 d")
 
     return
 

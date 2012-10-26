@@ -106,6 +106,9 @@ class SvgCanvas
         node.setAttribute("stroke-width", @lineWidth)
         node.setAttribute("stroke-linejoin", @lineJoin) if @lineJoin
         node.setAttribute("stroke-linecap", @lineCap) if @lineCap
+        # set the dash attribute if we have requested a dash.  If mozDash is of the form [a, 0]
+        # it means we actually want a solid line, so don't set the dash in this case.
+        node.setAttribute("stroke-dasharray", @mozDash.join(',')) if @mozDash? and @mozDash?[1] != 0
         @_currentGroup.appendChild(node)
     fill: ->
         node = createSvgNode("path")
@@ -119,6 +122,9 @@ class SvgCanvas
         node.setAttribute("stroke", @strokeStyle)
         node.setAttribute("stroke-width", @lineWidth)
         node.setAttribute("stroke-linejoin", @lineJoin) if @lineJoin
+        # set the dash attribute if we have requested a dash.  If mozDash is of the form [a, 0]
+        # it means we actually want a solid line, so don't set the dash in this case.
+        node.setAttribute("stroke-dasharray", @mozDash.join(',')) if @mozDash? and @mozDash?[1] != 0
         @_currentGroup.appendChild(node)
     fillRect: (x, y, w, h) ->
         node = createSvgNode("rect")
@@ -136,6 +142,9 @@ class SvgCanvas
         node.setAttribute("height", h)
         node.setAttribute("stroke", @strokeStyle)
         node.setAttribute("stroke-width", @lineWidth)
+        # set the dash attribute if we have requested a dash.  If mozDash is of the form [a, 0]
+        # it means we actually want a solid line, so don't set the dash in this case.
+        node.setAttribute("stroke-dasharray", @mozDash.join(',')) if @mozDash? and @mozDash?[1] != 0
         @_currentGroup.appendChild(node)
     circle: (x, y, r) ->
         @ellipse(x, y, r)
@@ -233,8 +242,8 @@ class RecordableCanvas
         return ret
 
     constructor: (@width, @height) ->
-        @_satefulVariables = ['lineWidth', 'lineCap', 'miterLimit', 'strokeStyle', 'fillStyle', 'textAlign', 'textBaseline', 'globalAlpha', 'font', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle']
-        @_ctxCommands = ['scale', 'rotate', 'translate', 'transform', 'beginPath', 'closePath', 'fill', 'stroke', 'clip', 'moveTo', 'lineTo', 'quadraticCurveTo', 'bezierCurveTo', 'arcTo', 'arc', 'rect', 'text', 'strokeText', 'clearRect', 'fillRect', 'strokeRect', 'fillAndStroke', 'circle']
+        @_satefulVariables = ['lineWidth', 'lineCap', 'miterLimit', 'strokeStyle', 'fillStyle', 'textAlign', 'textBaseline', 'globalAlpha', 'font', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'mozDash']
+        @_ctxCommands = ['scale', 'rotate', 'translate', 'transform', 'beginPath', 'closePath', 'fill', 'stroke', 'clip', 'moveTo', 'lineTo', 'quadraticCurveTo', 'bezierCurveTo', 'arcTo', 'arc', 'rect', 'text', 'strokeText', 'clearRect', 'fillRect', 'strokeRect', 'fillAndStroke', 'circle', 'save', 'restore']
         # ensure that each command in the @_ctxCommands list will be recorded
         for cmd in @_ctxCommands
             makeRecordable(cmd, @)
@@ -246,7 +255,7 @@ class RecordableCanvas
         switch mode.toLowerCase()
             when 'string'
                 wrap = (s) ->
-                    return if typeOf(s) is 'string' then "'#{s}'" else s
+                    return if typeof s is 'string' then "'#{s}'" else s
                 ret = []
                 for cmd in filterStateChanges(@_issuedCommands)
                     for assgn, val of cmd['state']
@@ -367,6 +376,18 @@ class RecordableCanvas
                         @fillColor(val)
                     when 'strokeStyle'
                         @strokeColor(val)
+                    when 'mozDash'
+                        if val?
+                            if val.length is 1
+                                @dash(val[0])
+                            # if our mozDash is of the form [a 0] we don't
+                            # actually want to dash, so check if the second arg is 0
+                            else if val[1] > 0
+                                @dash(val[0], {space: val[1]})
+                            else
+                                @undash()
+                        else
+                            @undash()
                     when 'lineWidth'
                         @lineWidth(parseFloat(val))
                     when 'fontSize'
@@ -719,6 +740,8 @@ class AsciiSVG
         marker: {default: null, type: 'number', description: '', options: ['arrow', 'dot', 'arrowdot']}
         stroke: {default: 'black', type: 'color', description: 'Color to draw lines with'}
         strokewidth: {default: 1, type: 'number', description: 'Thickness of lines'}
+        strokestyle: {default: 'solid', type: 'string', description: 'What style lines should be drawn with', options: ['solid','dashed']}
+        dasharray: {default: [10, 5], type: 'array', description: 'For strokestyle="dashed" the array [strokelen, strokespace] will make a dash of length strokelen, then will draw nothing for strokespace, then repeats.'}
         background: {default: 'white', type: 'color', description: 'Background color of plot'}
         gridstroke: {default: '#aaaaaa', type: 'color', description: 'Color of gridlines of a plot'} #light-gray
         fill: {default: 'none', type: 'color', description: 'Color to fill shapes (circles/etc.) with'}
@@ -855,6 +878,8 @@ class AsciiSVG
         if typeOf(griddx) is 'number' and griddy == undefined
             griddy = griddx
 
+        @ctx.mozDash = if api.strokestyle is 'dashed' then api.dasharray else [1, 0]
+
         # draw the grid
         if griddx? or griddy?
             @ctx.beginPath()
@@ -956,6 +981,7 @@ class AsciiSVG
         @ctx.closePath()
         @ctx.fillStyle = api.fill
         @ctx.strokeStyle = api.stroke
+        @ctx.mozDash = if api.strokestyle is 'dashed' then api.dasharray else [1, 0]
         if api.fill? and api.fill != 'none'
             @ctx.fillAndStroke()
         else
@@ -970,6 +996,7 @@ class AsciiSVG
         @ctx.strokeStyle = api.stroke
         @ctx.fillStyle = api.fill
         @ctx.circle(p[0], p[1], radius)
+        @ctx.mozDash = if api.strokestyle is 'dashed' then api.dasharray else [1, 0]
         if filled
             @ctx.fillAndStroke()
         else
@@ -979,6 +1006,7 @@ class AsciiSVG
         p = @_toDeviceCoordinates(center)
         @ctx.strokeStyle = api.stroke
         @ctx.lineWidth = api.strokewidth
+        @ctx.mozDash = null
 
         switch type
             when '+'
@@ -1014,6 +1042,7 @@ class AsciiSVG
     line: (start, end) ->
         @ctx.lineWidth = api.strokewidth
         @ctx.strokeStyle = api.stroke
+        @ctx.mozDash = if api.strokestyle is 'dashed' then api.dasharray else [1, 0]
         @_line(@_toDeviceCoordinates(start), @_toDeviceCoordinates(end))
         if api.marker in ['dot', 'arrowdot']
             @dot(start)
@@ -1038,6 +1067,7 @@ class AsciiSVG
         for p in plist[1..]
             p = @_toDeviceCoordinates(p)
             @ctx.lineTo(p[0],p[1])
+        @ctx.mozDash = if api.strokestyle is 'dashed' then api.dasharray else [1, 0]
         @ctx.stroke()
 
         if api.marker in ['dot', 'arrowdot']
@@ -1145,6 +1175,7 @@ class AsciiSVG
             @ctx.lineWidth = size
             @ctx.strokeStyle = api.stroke
             @ctx.fillStyle = api.stroke
+            @ctx.mozDash = null
             @ctx.beginPath()
             @ctx.moveTo(q[0]-15*u[0]-4*uperp[0], q[1]-15*u[1]-4*uperp[1])
             @ctx.lineTo(q[0]-3*u[0], q[1]-3*u[1])

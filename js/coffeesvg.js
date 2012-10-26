@@ -136,7 +136,7 @@ SvgCanvas = (function() {
   };
 
   SvgCanvas.prototype.stroke = function() {
-    var node;
+    var node, _ref;
     node = createSvgNode("path");
     node.setAttribute("d", this._currentPath);
     node.setAttribute("fill", "none");
@@ -147,6 +147,9 @@ SvgCanvas = (function() {
     }
     if (this.lineCap) {
       node.setAttribute("stroke-linecap", this.lineCap);
+    }
+    if ((this.mozDash != null) && ((_ref = this.mozDash) != null ? _ref[1] : void 0) !== 0) {
+      node.setAttribute("stroke-dasharray", this.mozDash.join(','));
     }
     return this._currentGroup.appendChild(node);
   };
@@ -160,7 +163,7 @@ SvgCanvas = (function() {
   };
 
   SvgCanvas.prototype.fillAndStroke = function() {
-    var node;
+    var node, _ref;
     node = createSvgNode("path");
     node.setAttribute("d", this._currentPath);
     node.setAttribute("fill", this.fillStyle);
@@ -168,6 +171,9 @@ SvgCanvas = (function() {
     node.setAttribute("stroke-width", this.lineWidth);
     if (this.lineJoin) {
       node.setAttribute("stroke-linejoin", this.lineJoin);
+    }
+    if ((this.mozDash != null) && ((_ref = this.mozDash) != null ? _ref[1] : void 0) !== 0) {
+      node.setAttribute("stroke-dasharray", this.mozDash.join(','));
     }
     return this._currentGroup.appendChild(node);
   };
@@ -184,7 +190,7 @@ SvgCanvas = (function() {
   };
 
   SvgCanvas.prototype.strokeRect = function(x, y, w, h) {
-    var node;
+    var node, _ref;
     node = createSvgNode("path");
     node.setAttribute("x", x);
     node.setAttribute("y", y);
@@ -192,6 +198,9 @@ SvgCanvas = (function() {
     node.setAttribute("height", h);
     node.setAttribute("stroke", this.strokeStyle);
     node.setAttribute("stroke-width", this.lineWidth);
+    if ((this.mozDash != null) && ((_ref = this.mozDash) != null ? _ref[1] : void 0) !== 0) {
+      node.setAttribute("stroke-dasharray", this.mozDash.join(','));
+    }
     return this._currentGroup.appendChild(node);
   };
 
@@ -339,8 +348,8 @@ RecordableCanvas = (function() {
     var cmd, _i, _len, _ref;
     this.width = width;
     this.height = height;
-    this._satefulVariables = ['lineWidth', 'lineCap', 'miterLimit', 'strokeStyle', 'fillStyle', 'textAlign', 'textBaseline', 'globalAlpha', 'font', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle'];
-    this._ctxCommands = ['scale', 'rotate', 'translate', 'transform', 'beginPath', 'closePath', 'fill', 'stroke', 'clip', 'moveTo', 'lineTo', 'quadraticCurveTo', 'bezierCurveTo', 'arcTo', 'arc', 'rect', 'text', 'strokeText', 'clearRect', 'fillRect', 'strokeRect', 'fillAndStroke', 'circle'];
+    this._satefulVariables = ['lineWidth', 'lineCap', 'miterLimit', 'strokeStyle', 'fillStyle', 'textAlign', 'textBaseline', 'globalAlpha', 'font', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'mozDash'];
+    this._ctxCommands = ['scale', 'rotate', 'translate', 'transform', 'beginPath', 'closePath', 'fill', 'stroke', 'clip', 'moveTo', 'lineTo', 'quadraticCurveTo', 'bezierCurveTo', 'arcTo', 'arc', 'rect', 'text', 'strokeText', 'clearRect', 'fillRect', 'strokeRect', 'fillAndStroke', 'circle', 'save', 'restore'];
     _ref = this._ctxCommands;
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       cmd = _ref[_i];
@@ -357,7 +366,7 @@ RecordableCanvas = (function() {
     switch (mode.toLowerCase()) {
       case 'string':
         wrap = function(s) {
-          if (typeOf(s) === 'string') {
+          if (typeof s === 'string') {
             return "'" + s + "'";
           } else {
             return s;
@@ -536,6 +545,21 @@ RecordableCanvas = (function() {
             break;
           case 'strokeStyle':
             _results.push(this.strokeColor(val));
+            break;
+          case 'mozDash':
+            if (val != null) {
+              if (val.length === 1) {
+                _results.push(this.dash(val[0]));
+              } else if (val[1] > 0) {
+                _results.push(this.dash(val[0], {
+                  space: val[1]
+                }));
+              } else {
+                _results.push(this.undash());
+              }
+            } else {
+              _results.push(this.undash());
+            }
             break;
           case 'lineWidth':
             _results.push(this.lineWidth(parseFloat(val)));
@@ -1104,6 +1128,17 @@ AsciiSVG = (function() {
       type: 'number',
       description: 'Thickness of lines'
     },
+    strokestyle: {
+      "default": 'solid',
+      type: 'string',
+      description: 'What style lines should be drawn with',
+      options: ['solid', 'dashed']
+    },
+    dasharray: {
+      "default": [10, 5],
+      type: 'array',
+      description: 'For strokestyle="dashed" the array [strokelen, strokespace] will make a dash of length strokelen, then will draw nothing for strokespace, then repeats.'
+    },
     background: {
       "default": 'white',
       type: 'color',
@@ -1315,6 +1350,7 @@ AsciiSVG = (function() {
     if (typeOf(griddx) === 'number' && griddy === void 0) {
       griddy = griddx;
     }
+    this.ctx.mozDash = api.strokestyle === 'dashed' ? api.dasharray : [1, 0];
     if ((griddx != null) || (griddy != null)) {
       this.ctx.beginPath();
       this.ctx.strokeStyle = api.gridstroke;
@@ -1423,6 +1459,7 @@ AsciiSVG = (function() {
     this.ctx.closePath();
     this.ctx.fillStyle = api.fill;
     this.ctx.strokeStyle = api.stroke;
+    this.ctx.mozDash = api.strokestyle === 'dashed' ? api.dasharray : [1, 0];
     if ((api.fill != null) && api.fill !== 'none') {
       this.ctx.fillAndStroke();
     } else {
@@ -1442,6 +1479,7 @@ AsciiSVG = (function() {
     this.ctx.strokeStyle = api.stroke;
     this.ctx.fillStyle = api.fill;
     this.ctx.circle(p[0], p[1], radius);
+    this.ctx.mozDash = api.strokestyle === 'dashed' ? api.dasharray : [1, 0];
     if (filled) {
       this.ctx.fillAndStroke();
     } else {
@@ -1457,6 +1495,7 @@ AsciiSVG = (function() {
     p = this._toDeviceCoordinates(center);
     this.ctx.strokeStyle = api.stroke;
     this.ctx.lineWidth = api.strokewidth;
+    this.ctx.mozDash = null;
     switch (type) {
       case '+':
         this.ctx.beginPath();
@@ -1497,6 +1536,7 @@ AsciiSVG = (function() {
     var _ref;
     this.ctx.lineWidth = api.strokewidth;
     this.ctx.strokeStyle = api.stroke;
+    this.ctx.mozDash = api.strokestyle === 'dashed' ? api.dasharray : [1, 0];
     this._line(this._toDeviceCoordinates(start), this._toDeviceCoordinates(end));
     if ((_ref = api.marker) === 'dot' || _ref === 'arrowdot') {
       this.dot(start);
@@ -1528,6 +1568,7 @@ AsciiSVG = (function() {
       p = this._toDeviceCoordinates(p);
       this.ctx.lineTo(p[0], p[1]);
     }
+    this.ctx.mozDash = api.strokestyle === 'dashed' ? api.dasharray : [1, 0];
     this.ctx.stroke();
     if ((_ref1 = api.marker) === 'dot' || _ref1 === 'arrowdot') {
       for (_j = 0, _len1 = plist.length; _j < _len1; _j++) {
@@ -1682,6 +1723,7 @@ AsciiSVG = (function() {
       this.ctx.lineWidth = size;
       this.ctx.strokeStyle = api.stroke;
       this.ctx.fillStyle = api.stroke;
+      this.ctx.mozDash = null;
       this.ctx.beginPath();
       this.ctx.moveTo(q[0] - 15 * u[0] - 4 * uperp[0], q[1] - 15 * u[1] - 4 * uperp[1]);
       this.ctx.lineTo(q[0] - 3 * u[0], q[1] - 3 * u[1]);

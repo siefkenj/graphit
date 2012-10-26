@@ -36,11 +36,16 @@ typeOf = function(obj) {
 };
 
 wrap = function(s) {
-  if (typeOf(s) === 'string') {
-    return "'" + s + "'";
-  } else {
-    return s;
+  var ret;
+  ret = s;
+  switch (typeOf(s)) {
+    case 'string':
+      ret = "'" + s + "'";
+      break;
+    case 'array':
+      ret = "[" + (s.join(', ')) + "]";
   }
+  return ret;
 };
 
 /*
@@ -299,6 +304,9 @@ $(document).ready(function() {
     } else {
       return this.finalizedStream = '';
     }
+  };
+  PDFDocument.prototype.undash = function() {
+    return this.addContent("[] 0 d");
   };
 });
 
