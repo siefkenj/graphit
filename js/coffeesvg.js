@@ -680,9 +680,14 @@ SourceModifier = (function() {
     if (str == null) {
       str = this.source || '';
     }
-    this.tree = esprima.parse(str, {
-      loc: true
-    });
+    try {
+      this.tree = esprima.parse(str, {
+        loc: true
+      });
+    } catch (e) {
+      e.sourceLine = str.split('\n')[e.lineNumber - 1];
+      throw e;
+    }
     return _ref = this.walk(this.tree), this.assignments = _ref.assignments, this.calls = _ref.calls, this.blocks = _ref.blocks, _ref;
   };
 
@@ -1249,7 +1254,14 @@ AsciiSVG = (function() {
     source.parse();
     source.prefixAssignments('api', api);
     source.prefixCalls('api', api);
-    eval(source.generateCode());
+    source.insertLineNumbers('api');
+    try {
+      eval(source.generateCode());
+    } catch (e) {
+      e.lineNumber = api.lineNumber;
+      e.sourceLine = array_raw.split('\n')[e.lineNumber - 1];
+      throw e;
+    }
     switch (renderMode) {
       case 'canvas':
         canvas = $("<canvas width='" + api.width + "' height='" + api.height + "' id='" + id + "' />")[0];

@@ -415,7 +415,7 @@ updateGraph = function() {
   try {
     nAsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0], 'svg');
   } catch (err) {
-    throw err;
+    window.err = err;
     if (err.lineNumber != null) {
       alert("" + err + "\nline number: " + err.lineNumber + "\nline: " + err.sourceLine);
     } else {

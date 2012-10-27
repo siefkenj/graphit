@@ -25,6 +25,7 @@ typeOf = (obj) ->
     if constructorName == 'Object'
         return 'object'
     return constructorName
+
 # wraps strings in quotes, otherwise does nothing
 wrap = (s) ->
     ret = s
@@ -295,7 +296,8 @@ updateGraph = ->
         nAsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0], 'svg')
         #nAsciiSVG.updatePicture(inputArea.getValue(), $("#target_canvas")[0],'canvas')
     catch err
-        throw err
+        window.err = err
+        #throw err
         # see if it is an error that we can highlight
         # in the code
         if err.lineNumber?

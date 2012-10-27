@@ -474,7 +474,11 @@ class SourceModifier
     constructor: (@source) ->
 
     parse: (str=@source or '') ->
-        @tree = esprima.parse(str, {loc: true})
+        try
+            @tree = esprima.parse(str, {loc: true})
+        catch e
+            e.sourceLine = str.split('\n')[e.lineNumber - 1]
+            throw e
         {@assignments, @calls, @blocks} = @walk(@tree)
 
     generateCode: ->
@@ -806,7 +810,13 @@ class AsciiSVG
         source.parse()
         source.prefixAssignments('api', api)
         source.prefixCalls('api', api)
-        eval(source.generateCode())
+        source.insertLineNumbers('api')
+        try
+            eval(source.generateCode())
+        catch e
+            e.lineNumber = api.lineNumber
+            e.sourceLine = array_raw.split('\n')[e.lineNumber - 1]
+            throw e
 
         switch renderMode
             when 'canvas'
