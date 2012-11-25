@@ -4,7 +4,7 @@
 # that are instances of those types.
 */
 
-var DownloadManager, FileHandler, deleteGraphFromGraphData, displayExamples, historyClearAll, historyLoadFromFile, initializeGraphHistory, loadDocumentation, loadExamples, loadGraph, loadGraphFromGraphData, makeEditable, resizeGraph, round, saveGraph, setGraphFromSvg, typeOf, updateGraph, validateNumber, wrap,
+var CodeError, DownloadManager, FileHandler, deleteGraphFromGraphData, displayExamples, historyClearAll, historyLoadFromFile, initializeGraphHistory, loadDocumentation, loadExamples, loadGraph, loadGraphFromGraphData, makeEditable, resizeGraph, round, saveGraph, setGraphFromSvg, typeOf, updateGraph, validateNumber, wrap,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 typeOf = function(obj) {
@@ -407,17 +407,70 @@ loadDocumentation = function() {
 };
 
 /*
+# Small collection of functions to display an error popup for
+# inputArea code errors
+*/
+
+
+CodeError = {
+  inputAreaLineNumbersOriginalState: false,
+  currentlyMarkedErrors: [],
+  mark: function(err) {
+    var enterHandler, id, leaveHandler, marker;
+    CodeError.inputAreaLineNumbersOriginalState = inputArea.getOption('lineNumber');
+    inputArea.setOption('lineNumbers', true);
+    id = "lineerror" + err.lineNumber;
+    marker = inputArea.setMarker(err.lineNumber - 1, "<span id='" + id + "' style='color:red'>!! %N%</span>");
+    marker.err = err;
+    marker.tooltip = $("<div class='errortooltip'>" + err + "<br />" + err.sourceLine + "</div>");
+    marker.tooltip.hide();
+    $(document.body).append(marker.tooltip);
+    enterHandler = function(evt) {
+      var elm, left, top, _ref;
+      elm = $(evt.currentTarget);
+      _ref = elm.offset(), top = _ref.top, left = _ref.left;
+      top += elm.height();
+      marker.tooltip.css({
+        left: left,
+        top: top,
+        'z-index': 1000
+      });
+      return marker.tooltip.show();
+    };
+    leaveHandler = function() {
+      return marker.tooltip.hide();
+    };
+    $('#' + id).hover(enterHandler, leaveHandler);
+    $(document.body).append(marker.tooltip);
+    return CodeError.currentlyMarkedErrors.push(marker);
+  },
+  unmarkAll: function() {
+    var marker, _i, _len, _ref;
+    _ref = CodeError.currentlyMarkedErrors;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      marker = _ref[_i];
+      inputArea.clearMarker(marker);
+      marker.tooltip.remove();
+      marker.tooltip = null;
+    }
+    inputArea.setOption('lineNumbers', CodeError.inputAreaLineNumbersOriginalState);
+    return CodeError.currentlyMarkedErrors = [];
+  }
+};
+
+/*
 # Draw the current graph to #svg-preview
 */
 
 
 updateGraph = function() {
   try {
+    CodeError.unmarkAll();
     nAsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0], 'svg');
   } catch (err) {
     window.err = err;
-    if (err.lineNumber != null) {
-      alert("" + err + "\nline number: " + err.lineNumber + "\nline: " + err.sourceLine);
+    if ((err.lineNumber != null) && err.lineNumber < inputArea.lineCount()) {
+      CodeError.mark(err);
     } else {
       throw err;
     }

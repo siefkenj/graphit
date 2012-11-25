@@ -753,7 +753,7 @@ SourceModifier = (function() {
   };
 
   SourceModifier.prototype.insertLineNumbers = function(val, blocks) {
-    var b, i, newNode, node, _i, _len;
+    var b, i, newNode, node, _i, _len, _ref;
     if (val == null) {
       val = 'foo';
     }
@@ -765,7 +765,7 @@ SourceModifier = (function() {
       i = 0;
       while (b[i] != null) {
         node = b[i];
-        if (node.type === 'ExpressionStatement' && node.expression.type === 'CallExpression') {
+        if (node.type === 'ExpressionStatement' && ((_ref = node.expression.type) === 'CallExpression' || _ref === 'Identifier' || _ref === 'Literal')) {
           node = node.expression;
           newNode = {
             type: 'ExpressionStatement',
@@ -798,7 +798,7 @@ SourceModifier = (function() {
   };
 
   SourceModifier.prototype.walk = function(tree, tracked) {
-    var e, _i, _len;
+    var e, _i, _len, _ref;
     if (tracked == null) {
       tracked = {
         assignments: [],
@@ -877,6 +877,9 @@ SourceModifier = (function() {
           break;
         case 'ExpressionStatement':
           this.walk(tree.expression, tracked);
+          if ((_ref = tree.expression.type) === 'Identifier' || _ref === 'Literal') {
+            tracked.calls.push(tree);
+          }
           break;
         case 'CallExpression':
           tree.callee.parent = tree;

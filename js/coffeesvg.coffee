@@ -524,7 +524,7 @@ class SourceModifier
             i = 0
             while b[i]?
                 node = b[i]
-                if node.type is 'ExpressionStatement' and node.expression.type is 'CallExpression'
+                if node.type is 'ExpressionStatement' and node.expression.type in ['CallExpression', 'Identifier', 'Literal']
                     node = node.expression
                     # create the line assignment node
                     newNode =
@@ -611,6 +611,11 @@ class SourceModifier
                     @walk(tree.right,tracked)
                 when 'ExpressionStatement'
                     @walk(tree.expression, tracked)
+                    # there is a special case.  If an expression statement contains
+                    # only an Identifier or only a Literal, then javascript evaluates
+                    # this, so add it to our list of calls
+                    if tree.expression.type in ['Identifier', 'Literal']
+                        tracked.calls.push tree
                 when 'CallExpression'
                     tree.callee.parent = tree
                     tracked['calls'].push tree.callee
