@@ -707,6 +707,7 @@ FileHandler = {
   dragEnter: function(evt) {
     $('#dropcontainer').show();
     $('.tabs').hide();
+    $('#forkme').hide();
     evt.stopPropagation();
     return evt.preventDefault();
   },
@@ -714,6 +715,7 @@ FileHandler = {
     $('#dropcontainer').hide();
     $('#dropbox').removeClass('dropbox-hover');
     $('.tabs').show();
+    $('#forkme').show();
     if (evt != null) {
       evt.stopPropagation();
       return evt.preventDefault();

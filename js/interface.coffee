@@ -571,12 +571,14 @@ FileHandler =
     dragEnter: (evt) ->
         $('#dropcontainer').show()
         $('.tabs').hide()
+        $('#forkme').hide()
         evt.stopPropagation()
         evt.preventDefault()
     dragExit: (evt) ->
         $('#dropcontainer').hide()
         $('#dropbox').removeClass('dropbox-hover')
         $('.tabs').show()
+        $('#forkme').show()
         if evt?
             evt.stopPropagation()
             evt.preventDefault()
