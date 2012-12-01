@@ -184,11 +184,12 @@ $(document).ready ->
     $('#history-clear-all').click historyClearAll
 
     # set up the drag-and-drop
-    $('#dropbox').hide()
+    $('#dropcontainer').hide()
     $('body')[0].addEventListener('dragenter', FileHandler.dragEnter, false)
     $('body')[0].addEventListener('dragexit', FileHandler.dragExit, false)
     $('#dropbox')[0].addEventListener('dragover', FileHandler.dragOver, false)
     $('body')[0].addEventListener('drop', FileHandler.drop, false)
+    $('#hide-dropbox').click(-> FileHandler.dragExit())
 
     # set up the save dialog
     $('#save-dialog').dialog
@@ -568,12 +569,12 @@ FileHandler =
         setGraphFromSvg data
 
     dragEnter: (evt) ->
-        $('#dropbox').show()
+        $('#dropcontainer').show()
         $('.tabs').hide()
         evt.stopPropagation()
         evt.preventDefault()
     dragExit: (evt) ->
-        $('#dropbox').hide()
+        $('#dropcontainer').hide()
         $('#dropbox').removeClass('dropbox-hover')
         $('.tabs').show()
         if evt?

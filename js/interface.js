@@ -249,11 +249,14 @@ $(document).ready(function() {
   $('#load-graph').click(loadGraph);
   $('#history-load-from-file').click(historyLoadFromFile);
   $('#history-clear-all').click(historyClearAll);
-  $('#dropbox').hide();
+  $('#dropcontainer').hide();
   $('body')[0].addEventListener('dragenter', FileHandler.dragEnter, false);
   $('body')[0].addEventListener('dragexit', FileHandler.dragExit, false);
   $('#dropbox')[0].addEventListener('dragover', FileHandler.dragOver, false);
   $('body')[0].addEventListener('drop', FileHandler.drop, false);
+  $('#hide-dropbox').click(function() {
+    return FileHandler.dragExit();
+  });
   $('#save-dialog').dialog({
     autoOpen: false,
     buttons: {
@@ -702,13 +705,13 @@ FileHandler = {
     return setGraphFromSvg(data);
   },
   dragEnter: function(evt) {
-    $('#dropbox').show();
+    $('#dropcontainer').show();
     $('.tabs').hide();
     evt.stopPropagation();
     return evt.preventDefault();
   },
   dragExit: function(evt) {
-    $('#dropbox').hide();
+    $('#dropcontainer').hide();
     $('#dropbox').removeClass('dropbox-hover');
     $('.tabs').show();
     if (evt != null) {
