@@ -472,7 +472,7 @@ updateGraph = function() {
     nAsciiSVG.updatePicture(inputArea.getValue(), $("#target")[0], 'svg');
   } catch (err) {
     window.err = err;
-    if ((err.lineNumber != null) && err.lineNumber < inputArea.lineCount()) {
+    if ((err.lineNumber != null) && err.lineNumber <= inputArea.lineCount()) {
       CodeError.mark(err);
     } else {
       throw err;
