@@ -15,7 +15,7 @@ when running local files), or you can run it from a php enabled
 web server for full functionality.
 
 You can try out a live version of Graphit yourself at
-http://web.uvic.ca/~siefkenj/graphit/graphit.html
+http://www.math.toronto.edu/siefkenj/graphit/graphit.html
 
 Liscense
 ========
